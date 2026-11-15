@@ -12,6 +12,7 @@ describe("Frontier engine", () => {
     let state = createInitialGame(); const capital = state.map.territories.find((territory) => territory.capitalFor === "human")!;
     state = advanceGame(advanceGame(advanceGame(state)));
     expect(state.territories[capital.id].units).toBe(13);
+    expect(state.territories[capital.id].population).toBe(223);
   });
   it("selects a legal opening move for the normal bot", () => {
     const state = createInitialGame(); const command = chooseBotCommand(state, "normal");

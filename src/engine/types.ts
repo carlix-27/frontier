@@ -22,6 +22,7 @@ export interface MapDefinition {
 export interface TerritoryState {
   owner: PlayerId | null;
   units: number;
+  population: number;
   fortification: number;
 }
 
@@ -33,6 +34,11 @@ export interface GameEvent {
     to: TerritoryId;
     player: PlayerId;
     units: number;
+  };
+  capture?: {
+    territory: TerritoryId;
+    from: TerritoryId;
+    player: PlayerId;
   };
 }
 

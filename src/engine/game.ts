@@ -9,8 +9,8 @@ function copyTerritories(territories: GameState["territories"]): GameState["terr
   return Object.fromEntries(Object.entries(territories).map(([id, territory]) => [id, { ...territory }])) as Record<TerritoryId, TerritoryState>;
 }
 
-function withEvent(state: GameState, message: string, movement?: GameState["events"][number]["movement"]): GameState {
-  return { ...state, events: [{ tick: state.tick, message, movement }, ...state.events].slice(0, EVENT_LIMIT) };
+function withEvent(state: GameState, message: string, movement?: GameState["events"][number]["movement"], capture?: GameState["events"][number]["capture"]): GameState {
+  return { ...state, events: [{ tick: state.tick, message, movement, capture }, ...state.events].slice(0, EVENT_LIMIT) };
 }
 
 function capitalId(state: GameState, player: PlayerId): TerritoryId {
@@ -40,7 +40,7 @@ function controlScore(state: GameState, player: PlayerId): number {
 
 export function createInitialGame(maxTicks = 300, seed = 27): GameState {
   const map = generateFrontierMap(seed);
-  const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, fortification: territory.capitalFor ? 1 : 0 }])) as Record<TerritoryId, TerritoryState>;
+  const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0 }])) as Record<TerritoryId, TerritoryState>;
   return { tick: 0, maxTicks, map, territories, suppliedLinks: [], events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
 }
 
@@ -71,9 +71,9 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
   const defence = target.units + target.fortification * 2;
   const movement = { from: command.from, to: command.to, player: command.player, units: attackers };
   if (attackers > defence) {
-    const previousOwner = target.owner; target.owner = command.player; target.units = attackers - defence; target.fortification = 0;
+    const previousOwner = target.owner; target.owner = command.player; target.units = attackers - defence; target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
     const message = previousOwner ? `${command.player} captured ${getTerritory(state.map, command.to).label}.` : `${command.player} claimed ${getTerritory(state.map, command.to).label}.`;
-    return { ok: true, state: withEvent({ ...state, territories }, message, movement) };
+    return { ok: true, state: withEvent({ ...state, territories }, message, movement, { territory: command.to, from: command.from, player: command.player }) };
   }
   target.units = Math.max(1, defence - attackers);
   return { ok: true, state: withEvent({ ...state, territories }, `${command.player}'s attack was repelled.`, movement) };
@@ -85,6 +85,7 @@ export function advanceGame(state: GameState): GameState {
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const definition of next.map.territories) {
     const territory = next.territories[definition.id];
     if (territory.owner && isConnectedToCapital(next, definition.id, territory.owner)) {
+      territory.population += definition.capitalFor ? 3 : 1;
       const supplyBonus = definition.neighbours.some((neighbour) => next.suppliedLinks.includes(linkId(definition.id, neighbour))) ? 1 : 0;
       territory.units += 1 + supplyBonus;
     }
