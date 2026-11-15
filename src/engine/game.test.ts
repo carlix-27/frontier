@@ -23,4 +23,19 @@ describe("Frontier engine", () => {
     const result = applyCommand(state, { type: "expand", player: "human", from: capital.id, to: target });
     expect(result.ok).toBe(true); expect(result.state.events[0].movement?.to).toBe(target);
   });
+  it("opens a trade route and delivers population on production ticks", () => {
+    const initial = createInitialGame();
+    const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
+    const destination = capital.neighbours[0];
+    const expansion = applyCommand(initial, { type: "expand", player: "human", from: capital.id, to: destination });
+    expect(expansion.ok).toBe(true);
+    if (!expansion.ok) return;
+    const trade = applyCommand(expansion.state, { type: "trade", player: "human", from: capital.id, to: destination });
+    expect(trade.ok).toBe(true);
+    if (!trade.ok) return;
+    const before = trade.state.territories[destination].population;
+    const after = advanceGame(advanceGame(advanceGame(trade.state)));
+    expect(after.tradeRoutes).toHaveLength(1);
+    expect(after.territories[destination].population).toBe(before + 3);
+  });
 });

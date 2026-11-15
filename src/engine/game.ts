@@ -41,7 +41,7 @@ function controlScore(state: GameState, player: PlayerId): number {
 export function createInitialGame(maxTicks = 300, seed = 27): GameState {
   const map = generateFrontierMap(seed);
   const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0 }])) as Record<TerritoryId, TerritoryState>;
-  return { tick: 0, maxTicks, map, territories, suppliedLinks: [], events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
+  return { tick: 0, maxTicks, map, territories, suppliedLinks: [], tradeRoutes: [], events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
 }
 
 export function applyCommand(state: GameState, command: GameCommand): CommandResult {
@@ -54,6 +54,14 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     if (territory.fortification >= MAX_FORTIFICATION) return { ok: false, state, reason: "That territory is fully fortified." };
     territory.units -= 2; territory.fortification += 1;
     return { ok: true, state: withEvent({ ...state, territories }, `${command.player} fortified ${getTerritory(state.map, command.territory).label}.`) };
+  }
+  if (command.type === "trade") {
+    if (command.from === command.to) return { ok: false, state, reason: "Trade needs two different ports." };
+    const source = territories[command.from]; const target = territories[command.to];
+    if (source.owner !== command.player || target.owner !== command.player) return { ok: false, state, reason: "Trade routes connect two of your territories." };
+    const id = linkId(command.from, command.to);
+    if (state.tradeRoutes.some((route) => route.id === id && route.player === command.player)) return { ok: false, state, reason: "That trade route already exists." };
+    return { ok: true, state: withEvent({ ...state, tradeRoutes: [...state.tradeRoutes, { id, from: command.from, to: command.to, player: command.player }] }, `${command.player} opened a maritime trade route.`) };
   }
   if (!getTerritory(state.map, command.from).neighbours.includes(command.to)) return { ok: false, state, reason: "Those territories do not share a frontier." };
   const source = territories[command.from]; const target = territories[command.to];
@@ -89,6 +97,9 @@ export function advanceGame(state: GameState): GameState {
       const supplyBonus = definition.neighbours.some((neighbour) => next.suppliedLinks.includes(linkId(definition.id, neighbour))) ? 1 : 0;
       territory.units += 1 + supplyBonus;
     }
+  }
+  if (next.tick % PRODUCTION_INTERVAL === 0) for (const route of next.tradeRoutes) {
+    if (next.territories[route.from].owner === route.player && next.territories[route.to].owner === route.player) next.territories[route.to].population += 2;
   }
   if (next.territories[capitalId(next, "human")].owner === "bot") return withEvent({ ...next, winner: "bot" }, "bot captured the enemy capital.");
   if (next.territories[capitalId(next, "bot")].owner === "human") return withEvent({ ...next, winner: "human" }, "human captured the enemy capital.");

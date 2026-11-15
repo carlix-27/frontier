@@ -49,8 +49,16 @@ export interface GameState {
   map: MapDefinition;
   territories: Record<TerritoryId, TerritoryState>;
   suppliedLinks: string[];
+  tradeRoutes: TradeRoute[];
   events: GameEvent[];
   winner: PlayerId | "draw" | null;
+}
+
+export interface TradeRoute {
+  id: string;
+  from: TerritoryId;
+  to: TerritoryId;
+  player: PlayerId;
 }
 
 export interface ExpandCommand {
@@ -73,7 +81,14 @@ export interface SupplyCommand {
   to: TerritoryId;
 }
 
-export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand;
+export interface TradeCommand {
+  type: "trade";
+  player: PlayerId;
+  from: TerritoryId;
+  to: TerritoryId;
+}
+
+export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand;
 
 export type CommandResult =
   | { ok: true; state: GameState }

@@ -21,6 +21,15 @@
 .actions kbd { background: #0a1725; border: 1px solid #597694; border-radius: 3px; color: #dbe9f6; font-family: ui-monospace, monospace; font-size: 0.75rem; font-weight: 800; min-width: 1.5rem; padding: 0.15rem 0.3rem; text-align: center; }
 .actions button.active kbd { background: #d9f8ff; border-color: #d9f8ff; color: #06111c; }
 
+.trade-routes { pointer-events: none; }
+.trade-wake { fill: none; stroke: #d9f7f8; stroke-dasharray: 4 8; stroke-width: 1.5; opacity: 0.52; }
+.trade-ship .ship-hull { fill: #17313f; stroke: #e9f4f5; stroke-width: 1; }
+.trade-ship .ship-bridge { fill: #e9f4f5; stroke: #17313f; stroke-width: 1; }
+.trade-ship .ship-cargo rect { fill: #d7894a; stroke: #4a2517; stroke-width: 0.65; }
+.trade-ship.bot .ship-cargo rect { fill: #d8a04a; }
+.trade-unload { pointer-events: none; }
+.trade-unload rect { fill: #f1bd60; stroke: #5a351f; stroke-width: 1; }
+
 @keyframes population-rise {
   0% { fill: #efffd1; font-size: 15px; opacity: 0; }
   35% { fill: #efffd1; opacity: 1; }
