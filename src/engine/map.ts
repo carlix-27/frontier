@@ -7,7 +7,7 @@ const TERRITORY_COUNT = 32;
 const MINIMUM_DISTANCE = 63;
 
 const coastline: Array<[number, number]> = [[105,360],[79,332],[93,299],[87,267],[121,238],[123,207],[155,194],[171,158],[207,151],[230,120],[267,133],[294,108],[332,122],[356,99],[398,116],[430,145],[471,139],[501,109],[535,114],[563,91],[601,105],[632,131],[672,127],[695,157],[731,165],[748,200],[786,214],[803,246],[783,275],[817,307],[795,341],[802,374],[770,393],[758,430],[726,444],[697,477],[654,469],[624,501],[579,490],[547,516],[500,500],[462,514],[426,489],[390,498],[357,473],[318,487],[279,465],[245,477],[211,449],[177,458],[149,424],[118,412],[128,382]];
-export const LAND_PATH = `${coastline.map(([x, y], index) => `${index === 0 ? "M" : "L"}${x},${y}`).join(" ")} Z`;
+type Point = [number, number];
 
 const regionNames = ["Aster", "Bramble", "Cinder", "Dawnreach", "Ember", "Fallow", "Gale", "Hollow", "Ironwood", "Juniper", "Kestrel", "Larkspur", "Morrow", "Northwatch", "Oaken", "Palisade", "Quartz", "Rookery", "Sable", "Thorn", "Umber", "Vale", "Westmere", "Yarrow", "Zephyr", "Alder", "Bracken", "Crownfall", "Drift", "Ebon", "Flint", "Glimmer"];
 
@@ -21,6 +21,44 @@ function random(seed: number): () => number {
     return ((result ^ (result >>> 14)) >>> 0) / 4_294_967_296;
   };
 }
+
+function pointKey([x, y]: Point): string {
+  return `${Math.round(x * 10) / 10},${Math.round(y * 10) / 10}`;
+}
+
+function noise(key: string): number {
+  let hash = 2_166_136_261;
+  for (const character of key) hash = Math.imul(hash ^ character.charCodeAt(0), 16_777_619);
+  return ((hash >>> 0) % 10_000) / 10_000;
+}
+
+function roughEdge(start: Point, end: Point, roughness: number): Point[] {
+  const forward = pointKey(start) < pointKey(end);
+  const [first, last] = forward ? [start, end] : [end, start];
+  const distance = Math.hypot(last[0] - first[0], last[1] - first[1]);
+  const segments = Math.max(2, Math.ceil(distance / 28));
+  const normal: Point = [-(last[1] - first[1]) / distance, (last[0] - first[0]) / distance];
+  const edgeKey = `${pointKey(first)}:${pointKey(last)}`;
+  const points: Point[] = [];
+  for (let index = 1; index <= segments; index += 1) {
+    const progress = index / segments;
+    const amplitude = index === segments ? 0 : (noise(`${edgeKey}:${index}`) - 0.5) * roughness * 2;
+    points.push([first[0] + (last[0] - first[0]) * progress + normal[0] * amplitude, first[1] + (last[1] - first[1]) * progress + normal[1] * amplitude]);
+  }
+  return forward ? points : points.reverse();
+}
+
+function roughPath(vertices: Point[], roughness: number): string {
+  const normalized = vertices.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10] as Point);
+  const closed = pointKey(normalized[0]) === pointKey(normalized.at(-1)!) ? normalized.slice(0, -1) : normalized;
+  const path = [`M${closed[0][0]},${closed[0][1]}`];
+  for (let index = 0; index < closed.length; index += 1) {
+    for (const [x, y] of roughEdge(closed[index], closed[(index + 1) % closed.length], roughness)) path.push(`L${x},${y}`);
+  }
+  return `${path.join(" ")} Z`;
+}
+
+export const LAND_PATH = roughPath(coastline, 10);
 
 function isOnLand(x: number, y: number): boolean {
   let contained = false;
@@ -62,7 +100,7 @@ export function generateFrontierMap(seed = 27): MapDefinition {
     label: regionNames[index] ?? `Region ${index + 1}`,
     x,
     y,
-    path: voronoi.renderCell(index),
+    path: roughPath(Array.from(voronoi.cellPolygon(index) ?? []) as Point[], 5),
     neighbours: Array.from(delaunay.neighbors(index)).map((neighbour) => `region-${neighbour + 1}`),
     capitalFor: index === humanCapital ? "human" : index === botCapital ? "bot" : undefined,
   }));
