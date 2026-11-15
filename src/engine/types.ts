@@ -69,6 +69,7 @@ export interface ExpandCommand {
   player: PlayerId;
   from: TerritoryId;
   to: TerritoryId;
+  units?: number;
 }
 
 export interface FortifyCommand {

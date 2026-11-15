@@ -27,6 +27,13 @@ describe("Frontier engine", () => {
     const result = applyCommand(state, { type: "expand", player: "human", from: capital.id, to: target });
     expect(result.ok).toBe(true); expect(result.state.events[0].movement?.to).toBe(target);
   });
+  it("allows the player to choose a smaller attack force", () => {
+    const state = createInitialGame(); const capital = state.map.territories.find((territory) => territory.capitalFor === "human")!; const target = capital.neighbours[0];
+    const result = applyCommand(state, { type: "expand", player: "human", from: capital.id, to: target, units: 3 });
+    expect(result.ok).toBe(true);
+    expect(result.state.territories[capital.id].units).toBe(9);
+    expect(result.state.events[0].movement?.units).toBe(3);
+  });
   it("opens a trade route and delivers population on production ticks", () => {
     const initial = createInitialGame();
     const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;

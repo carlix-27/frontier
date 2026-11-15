@@ -89,8 +89,10 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     source.units -= 3; target.units += 1;
     return { ok: true, state: withEvent({ ...state, territories, suppliedLinks: [...state.suppliedLinks, route] }, `${command.player} opened a supply route to ${getTerritory(state.map, command.to).label}.`) };
   }
-  if (source.units < 3) return { ok: false, state, reason: "Expansion requires at least 3 units." };
-  const attackers = Math.floor(source.units / 2); source.units -= attackers;
+  if (source.units < 2) return { ok: false, state, reason: "Keep at least one unit behind to defend the territory." };
+  const attackers = command.units ?? Math.floor(source.units / 2);
+  if (!Number.isInteger(attackers) || attackers < 1 || attackers >= source.units) return { ok: false, state, reason: "Choose a whole number of units and leave at least one behind." };
+  source.units -= attackers;
   const defence = target.units + target.fortification * 2;
   const movement = { from: command.from, to: command.to, player: command.player, units: attackers };
   if (attackers > defence) {

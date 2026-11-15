@@ -37,6 +37,14 @@
 .building-card small { color: #8da6c1; font-size: .69rem; line-height: 1.3; }
 .building-card:not(:disabled):hover, .building-card.active { border-color: #f7e279; background: #273326; }
 .building-card:disabled { cursor: not-allowed; opacity: .48; }
+.force-control { background: #0d2133; border: 1px solid #35536e; margin-top: 12px; padding: 10px; }
+.force-control .eyebrow { margin-bottom: 2px; }
+.force-control strong { color: #f7e279; font-size: 1.15rem; }
+.force-control span { color: #9fb5c9; display: block; font-size: .72rem; line-height: 1.3; margin-top: 2px; }
+.force-control input { accent-color: #4cc9f0; cursor: pointer; margin: 10px 0 7px; width: 100%; }
+.force-presets { display: grid; gap: 5px; grid-template-columns: repeat(3, 1fr); }
+.force-presets button { background: #142f44; border: 1px solid #3b5d78; color: #dce8f5; font-size: .72rem; font-weight: 800; padding: 5px; }
+.force-presets button:hover { border-color: #f7e279; color: #f7e279; }
 .city-scene { pointer-events: none; }
 .city-house path, .city-factory path, .city-factory rect { fill: #f4e8bd; stroke: #30433b; stroke-width: 1; }
 .city-house rect { fill: #5d4130; }
