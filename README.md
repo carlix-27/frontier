@@ -16,7 +16,7 @@ Then open the local URL printed by Vite. Use the map to select territories and i
 ## Current prototype
 
 - One player versus one deterministic bot.
-- One compact territory map.
+- A deterministic, fictional continent generated from irregular Voronoi regions.
 - Expand, fortify, and supply commands.
 - Capital capture or control score win condition.
 - Easy, normal, and expert bot behaviours.
@@ -36,7 +36,7 @@ Then open the local URL printed by Vite. Use the map to select territories and i
 
 ## Technology
 
-The MVP uses Vite, TypeScript, the Canvas 2D API, and Vitest. Game rules live independently from the browser UI so the same engine can later run on an authoritative multiplayer server.
+The MVP uses Vite, React, TypeScript, SVG, `d3-delaunay`, and Vitest. Game rules live independently from reusable browser components so the same engine can later run on an authoritative multiplayer server.
 
 ## License
 

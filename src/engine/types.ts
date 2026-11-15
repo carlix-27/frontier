@@ -7,8 +7,16 @@ export interface TerritoryDefinition {
   label: string;
   x: number;
   y: number;
+  path: string;
   neighbours: TerritoryId[];
-  capital?: boolean;
+  capitalFor?: PlayerId;
+}
+
+export interface MapDefinition {
+  id: string;
+  seed: number;
+  landPath: string;
+  territories: TerritoryDefinition[];
 }
 
 export interface TerritoryState {
@@ -20,11 +28,18 @@ export interface TerritoryState {
 export interface GameEvent {
   tick: number;
   message: string;
+  movement?: {
+    from: TerritoryId;
+    to: TerritoryId;
+    player: PlayerId;
+    units: number;
+  };
 }
 
 export interface GameState {
   tick: number;
   maxTicks: number;
+  map: MapDefinition;
   territories: Record<TerritoryId, TerritoryState>;
   suppliedLinks: string[];
   events: GameEvent[];

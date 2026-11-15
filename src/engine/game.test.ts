@@ -3,27 +3,23 @@ import { chooseBotCommand } from "../bots/basicBot";
 import { advanceGame, applyCommand, createInitialGame } from "./game";
 
 describe("Frontier engine", () => {
-  it("captures a neutral territory when the attacking force is stronger", () => {
-    const state = createInitialGame();
-    const result = applyCommand(state, { type: "expand", player: "human", from: "harbor", to: "ridge" });
-
-    expect(result.ok).toBe(true);
-    expect(result.state.territories.ridge.owner).toBe("human");
-    expect(result.state.territories.ridge.units).toBe(4);
+  it("generates a deterministic fictional continent", () => {
+    const first = createInitialGame(300, 77); const second = createInitialGame(300, 77);
+    expect(first.map.territories).toEqual(second.map.territories);
+    expect(first.map.territories).toHaveLength(32);
   });
-
-  it("produces units for a territory connected to its capital", () => {
-    let state = createInitialGame();
-    state = advanceGame(state);
-    state = advanceGame(state);
-    state = advanceGame(state);
-
-    expect(state.territories.harbor.units).toBe(13);
+  it("produces units for a capital-connected region", () => {
+    let state = createInitialGame(); const capital = state.map.territories.find((territory) => territory.capitalFor === "human")!;
+    state = advanceGame(advanceGame(advanceGame(state)));
+    expect(state.territories[capital.id].units).toBe(13);
   });
-
   it("selects a legal opening move for the normal bot", () => {
-    const command = chooseBotCommand(createInitialGame(), "normal");
-
-    expect(command).toEqual({ type: "expand", player: "bot", from: "citadel", to: "heights" });
+    const state = createInitialGame(); const command = chooseBotCommand(state, "normal");
+    expect(command?.player).toBe("bot"); expect(command?.type).toBe("expand");
+  });
+  it("moves troops when attacking a neighbouring region", () => {
+    const state = createInitialGame(); const capital = state.map.territories.find((territory) => territory.capitalFor === "human")!; const target = capital.neighbours[0];
+    const result = applyCommand(state, { type: "expand", player: "human", from: capital.id, to: target });
+    expect(result.ok).toBe(true); expect(result.state.events[0].movement?.to).toBe(target);
   });
 });
