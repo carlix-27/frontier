@@ -87,6 +87,29 @@
 .map-command-indicator span { color: #a9c0d4; font-size: .58rem; font-weight: 800; grid-column: 1 / -1; letter-spacing: .1em; }
 .map-command-indicator strong { font-size: .82rem; text-transform: capitalize; }
 .map-command-indicator kbd { background: #4cc9f0; border-radius: 2px; color: #06111c; font-family: ui-monospace, monospace; font-size: .68rem; font-weight: 800; padding: 2px 5px; }
+.map-players { background: #091827ed; border: 1px solid #7198b2; color: #dce8f5; display: grid; gap: 4px; padding: 7px 10px; pointer-events: none; position: absolute; right: 14px; top: 14px; }
+.map-players span { color: #a9c0d4; font-size: .58rem; font-weight: 800; letter-spacing: .1em; }
+.map-players strong { font-size: .72rem; opacity: .45; }
+.map-players .alive { opacity: 1; }
+.map-players .blue { color: #70d3f1; }
+.map-players .red { color: #f09a9a; }
+.match-guide { background: #f5db83; border: 1px solid #ffe7a1; color: #29270e; margin-top: 10px; padding: 13px 16px; }
+.guide-header { align-items: start; display: flex; justify-content: space-between; gap: 12px; }
+.guide-header div { display: grid; gap: 3px; }
+.guide-header span { font-size: .64rem; font-weight: 900; letter-spacing: .11em; }
+.guide-header strong { font-size: 1rem; }
+.guide-header button, .guide-reopen { background: #182e3e; border: 0; color: #f7fbff; cursor: pointer; font-size: .74rem; font-weight: 800; padding: 6px 9px; }
+.match-guide p { background: #fff8d5; border-left: 3px solid #a36617; font-size: .83rem; margin: 12px 0; padding: 8px 10px; }
+.match-guide ol { display: grid; gap: 7px; grid-template-columns: repeat(2, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.match-guide li { align-items: start; display: flex; gap: 7px; opacity: .65; }
+.match-guide li.current, .match-guide li.done { opacity: 1; }
+.match-guide li > span { background: #233d47; border-radius: 50%; color: white; flex: 0 0 18px; font-size: .65rem; font-weight: 800; line-height: 18px; text-align: center; }
+.match-guide li.done > span { background: #327451; }
+.match-guide li strong, .match-guide li small { display: block; }
+.match-guide li strong { font-size: .74rem; }
+.match-guide li small { font-size: .68rem; line-height: 1.3; margin-top: 2px; }
+.guide-reopen { margin-top: 10px; }
+@media(max-width: 620px) { .match-guide ol { grid-template-columns: 1fr; } .map-players { gap: 1px; padding: 5px 7px; } .map-players strong { font-size: .6rem; } }
 @media (max-width: 520px) { .population-bar { align-items: stretch; grid-template-columns: 1fr; } .trade-budget { border-left: 0; border-top: 1px solid #2a435d; padding: 8px 0 0; } }
 
 .trade-routes { pointer-events: none; }
