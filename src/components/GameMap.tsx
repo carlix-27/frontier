@@ -1,15 +1,16 @@
+import { useEffect, useRef } from "react";
 import { getTerritory } from "../engine/map";
 import type { BuildingType, GameState, TerritoryId } from "../engine/types";
 
-interface Props { game: GameState; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; onTerritoryContextMenu?: (id: TerritoryId, x: number, y: number) => void; }
+interface Props { game: GameState; speed: 1 | 2 | 4; paused: boolean; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; onTerritoryContextMenu?: (id: TerritoryId, x: number, y: number) => void; }
 
-function CityScene({ x, y, buildings }: { x: number; y: number; buildings: BuildingType[] }) {
+function CityScene({ x, y, buildings, speed }: { x: number; y: number; buildings: BuildingType[]; speed: number }) {
   if (buildings.length === 0) return null;
   return <g className="city-scene" transform={`translate(${x - 18} ${y - 42})`}>
     {buildings.includes("housing") && <g className="city-house"><path d="M0,12 L9,4 L18,12 V23 H0 Z" /><rect x="7" y="16" width="4" height="7" /></g>}
-    {buildings.includes("factory") && <g className="city-factory" transform="translate(19 4)"><path d="M0,20 V8 L6,12 L10,7 L14,12 V20 Z" /><rect x="13" y="0" width="4" height="20" /><circle cx="15" cy="-3" r="2" className="city-smoke"><animate attributeName="cy" values="-3;-12" dur="2s" repeatCount="indefinite" /><animate attributeName="opacity" values=".7;0" dur="2s" repeatCount="indefinite" /></circle></g>}
-    {buildings.includes("railway") && <g className="city-railway" transform="translate(-3 26)"><path d="M0,0 H41" /><g className="city-train"><animateTransform attributeName="transform" type="translate" values="0 0;20 0;0 0" dur="2.4s" repeatCount="indefinite" /><rect x="0" y="-5" width="11" height="5" /><circle cx="3" cy="1" r="1.4" /><circle cx="8" cy="1" r="1.4" /></g></g>}
-    <g className="city-citizens"><circle cx="4" cy="27" r="1.4"><animate attributeName="cx" values="4;14;4" dur="2.2s" repeatCount="indefinite" /></circle><circle cx="17" cy="27" r="1.4"><animate attributeName="cx" values="17;28;17" dur="2.8s" repeatCount="indefinite" /></circle></g>
+    {buildings.includes("factory") && <g className="city-factory" transform="translate(19 4)"><path d="M0,20 V8 L6,12 L10,7 L14,12 V20 Z" /><rect x="13" y="0" width="4" height="20" /><circle cx="15" cy="-3" r="2" className="city-smoke"><animate attributeName="cy" values="-3;-12" dur={`${2 / speed}s`} repeatCount="indefinite" /><animate attributeName="opacity" values=".7;0" dur={`${2 / speed}s`} repeatCount="indefinite" /></circle></g>}
+    {buildings.includes("railway") && <g className="city-railway" transform="translate(-3 26)"><path d="M0,0 H41" /><g className="city-train"><animateTransform attributeName="transform" type="translate" values="0 0;20 0;0 0" dur={`${2.4 / speed}s`} repeatCount="indefinite" /><rect x="0" y="-5" width="11" height="5" /><circle cx="3" cy="1" r="1.4" /><circle cx="8" cy="1" r="1.4" /></g></g>}
+    <g className="city-citizens"><circle cx="4" cy="27" r="1.4"><animate attributeName="cx" values="4;14;4" dur={`${2.2 / speed}s`} repeatCount="indefinite" /></circle><circle cx="17" cy="27" r="1.4"><animate attributeName="cx" values="17;28;17" dur={`${2.8 / speed}s`} repeatCount="indefinite" /></circle></g>
   </g>;
 }
 
@@ -27,15 +28,17 @@ function seaRoute(from: { x: number; y: number }, to: { x: number; y: number }):
   return { path, roundTrip: `${path} C${to.x},${seaY} ${from.x},${seaY} ${from.x},${from.y}` };
 }
 
-export function GameMap({ game, selected, onTerritoryClick, onTerritoryContextMenu }: Props) {
+export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTerritoryContextMenu }: Props) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  useEffect(() => { if (paused) svgRef.current?.pauseAnimations(); else svgRef.current?.unpauseAnimations(); }, [paused]);
   const moving = game.events.filter((event) => event.movement).slice(0, 3);
   const captures = game.events.filter((event) => event.capture).slice(0, 2);
-  return <svg className="game-map" viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
+  return <svg ref={svgRef} className="game-map" viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
     <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient></defs>
     <rect width="900" height="600" fill="url(#ocean)" />
     <g className="trade-routes">{game.tradeRoutes.map((route) => {
       const from = getTerritory(game.map, route.from); const to = getTerritory(game.map, route.to); const sea = seaRoute(from, to);
-      return <g key={route.id}><path d={sea.path} className="trade-wake" /><g className={`trade-ship ${route.player}`}><animateMotion path={sea.roundTrip} dur="8s" repeatCount="indefinite" rotate="auto" /><path d="M-13,5 L12,5 L8,11 L-9,11 Z" className="ship-hull" /><g className="ship-cargo"><animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.42;0.5;0.92;1" dur="8s" repeatCount="indefinite" /><rect x="-7" y="-4" width="5" height="8" /><rect x="-1" y="-4" width="5" height="8" /><rect x="5" y="-2" width="4" height="6" /></g><path d="M-8,4 L-8,-10 L-3,-10 L-3,4 Z" className="ship-bridge" /></g><g className="trade-unload" transform={`translate(${to.x - 10} ${to.y - 8})`}><rect width="7" height="7" /><rect x="8" width="7" height="7" /><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4;0.46;0.54;0.6" dur="8s" repeatCount="indefinite" /></g></g>;
+      return <g key={route.id}><path d={sea.path} className="trade-wake" /><g className={`trade-ship ${route.player}`}><animateMotion path={sea.roundTrip} dur={`${8 / speed}s`} repeatCount="indefinite" rotate="auto" /><path d="M-13,5 L12,5 L8,11 L-9,11 Z" className="ship-hull" /><g className="ship-cargo"><animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.42;0.5;0.92;1" dur={`${8 / speed}s`} repeatCount="indefinite" /><rect x="-7" y="-4" width="5" height="8" /><rect x="-1" y="-4" width="5" height="8" /><rect x="5" y="-2" width="4" height="6" /></g><path d="M-8,4 L-8,-10 L-3,-10 L-3,4 Z" className="ship-bridge" /></g><g className="trade-unload" transform={`translate(${to.x - 10} ${to.y - 8})`}><rect width="7" height="7" /><rect x="8" width="7" height="7" /><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4;0.46;0.54;0.6" dur={`${8 / speed}s`} repeatCount="indefinite" /></g></g>;
     })}</g>
     <path d={game.map.landPath} className="land-bed" />
     <path d={game.map.landPath} className="land-outline" />
@@ -54,11 +57,11 @@ export function GameMap({ game, selected, onTerritoryClick, onTerritoryContextMe
         const [from, to] = link.split(":"); const first = getTerritory(game.map, from); const second = getTerritory(game.map, to);
         return <line key={link} className="supply-link" x1={first.x} y1={first.y} x2={second.x} y2={second.y} />;
       })}
-      <g className="city-layer">{game.map.territories.map((territory) => <CityScene key={`city-${territory.id}`} x={territory.x} y={territory.y} buildings={game.territories[territory.id].buildings} />)}</g>
+      <g className="city-layer">{game.map.territories.map((territory) => <CityScene key={`city-${territory.id}`} x={territory.x} y={territory.y} buildings={game.territories[territory.id].buildings} speed={speed} />)}</g>
     </g>
     <g clipPath="url(#land-clip)">{captures.map((event) => {
       const capture = event.capture!; const target = getTerritory(game.map, capture.territory);
-      return <g key={`capture-wave-${event.tick}-${capture.territory}`}><path d={target.path} className={`capture-before ${capture.previousOwner ?? "neutral"}`}><animate attributeName="fill-opacity" values="1;1;0" keyTimes="0;0.7;1" dur="1.05s" fill="freeze" /></path><path d={target.path} className={`capture-wave ${capture.player}`}><animate attributeName="fill-opacity" values="0;0.18;0.9;0" keyTimes="0;0.32;0.7;1" dur="1.05s" fill="freeze" /></path><path d={target.path} className="capture-border"><animate attributeName="stroke-opacity" values="0;1;0" dur="1.05s" fill="freeze" /></path></g>;
+      return <g key={`capture-wave-${event.tick}-${capture.territory}`}><path d={target.path} className={`capture-before ${capture.previousOwner ?? "neutral"}`}><animate attributeName="fill-opacity" values="1;1;0" keyTimes="0;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className={`capture-wave ${capture.player}`}><animate attributeName="fill-opacity" values="0;0.18;0.9;0" keyTimes="0;0.32;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className="capture-border"><animate attributeName="stroke-opacity" values="0;1;0" dur={`${1.05 / speed}s`} fill="freeze" /></path></g>;
     })}</g>
     <g clipPath="url(#land-clip)" className="territory-label-layer">{game.map.territories.map((territory) => {
       const state = game.territories[territory.id];
@@ -66,7 +69,7 @@ export function GameMap({ game, selected, onTerritoryClick, onTerritoryContextMe
     })}</g>
     {moving.map((event, index) => {
       const move = event.movement!; const from = getTerritory(game.map, move.from); const to = getTerritory(game.map, move.to);
-      return <g key={`${event.tick}-${index}-${move.from}-${move.to}`}><circle className={`troop ${move.player}`} r="6" cx={from.x} cy={from.y}><animate attributeName="cx" from={from.x} to={to.x} dur="0.8s" fill="freeze" /><animate attributeName="cy" from={from.y} to={to.y} dur="0.8s" fill="freeze" /></circle><text className="troop-count" x={from.x} y={from.y - 12}>{move.units}</text></g>;
+      return <g key={`${event.tick}-${index}-${move.from}-${move.to}`}><circle className={`troop ${move.player}`} r="6" cx={from.x} cy={from.y}><animate attributeName="cx" from={from.x} to={to.x} dur={`${0.8 / speed}s`} fill="freeze" /><animate attributeName="cy" from={from.y} to={to.y} dur={`${0.8 / speed}s`} fill="freeze" /></circle><text className="troop-count" x={from.x} y={from.y - 12}>{move.units}</text></g>;
     })}
   </svg>;
 }

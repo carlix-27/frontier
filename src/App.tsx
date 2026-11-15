@@ -6,6 +6,7 @@ import { getMapPreset, getTerritory, MAP_PRESETS } from "./engine/map";
 import type { BuildingType, GameCommand, PlayerId, PopulationUpgrade, TerritoryId } from "./engine/types";
 
 type ActionMode = "expand" | "fortify" | "supply" | "trade";
+type GameSpeed = 1 | 2 | 4;
 
 const descriptions: Record<ActionMode, string> = {
   expand: "Move half your force across a shared frontier.",
@@ -36,6 +37,7 @@ export default function App() {
   const [difficulty, setDifficulty] = useState<BotDifficulty>("normal");
   const [demoMode, setDemoMode] = useState(true);
   const [paused, setPaused] = useState(false);
+  const [speed, setSpeed] = useState<GameSpeed>(1);
   const [hint, setHint] = useState("The two commanders are securing their capitals.");
   const [showGuide, setShowGuide] = useState(true);
   const scores = useMemo(() => ({
@@ -64,9 +66,9 @@ export default function App() {
         }
       }
       return next;
-    }), 1000);
+    }), 1000 / speed);
     return () => window.clearInterval(timer);
-  }, [demoMode, difficulty, paused, screen]);
+  }, [demoMode, difficulty, paused, screen, speed]);
 
   useEffect(() => {
     const shortcuts: Record<string, ActionMode> = { "1": "expand", "2": "fortify", "3": "supply", "4": "trade" };
@@ -150,7 +152,8 @@ export default function App() {
     <section className="game-layout">
       <div className="map-panel">
         <div className="population-bar"><div><p className="eyebrow">POPULATION</p><strong>{scores.population.toLocaleString()}</strong><span>Unlimited citizens across your territories.</span></div><div className="trade-budget"><p className="eyebrow">TRADE CREDITS</p><strong>{scores.credits}</strong><span>Earn +2 per active route delivery.</span></div></div>
-        <div className="map-stage"><GameMap game={game} selected={selected} onTerritoryClick={handleTerritory} onTerritoryContextMenu={(territory, x, y) => { if (game.territories[territory].owner === "human") setContextMenu({ territory, x, y }); else setHint("You can manage population only in a blue territory."); }} /><div className="map-command-indicator" role="status" aria-live="polite"><span>ACTIVE COMMAND</span><strong>{activeCommand}</strong>{activeKey && <kbd>{activeKey}</kbd>}</div><div className="map-players" aria-label="Players alive"><span>PLAYERS ALIVE</span><strong className={blueAlive ? "blue alive" : "blue"}>● {demoMode ? "Blue AI" : "You"} {blueAlive ? "" : "· out"}</strong><strong className={redAlive ? "red alive" : "red"}>● Red AI {redAlive ? "" : "· out"}</strong></div></div>
+        <div className="playback-bar"><span>GAME SPEED</span><div className="speed-options" role="group" aria-label="Game speed">{([1, 2, 4] as GameSpeed[]).map((option) => <button key={option} type="button" className={speed === option ? "active" : ""} aria-pressed={speed === option} onClick={() => setSpeed(option)}>×{option}</button>)}</div><button type="button" className="pause-button" onClick={() => setPaused((current) => !current)}>{paused ? "Resume" : "Pause"}</button></div>
+        <div className="map-stage"><GameMap game={game} speed={speed} paused={paused} selected={selected} onTerritoryClick={handleTerritory} onTerritoryContextMenu={(territory, x, y) => { if (game.territories[territory].owner === "human") setContextMenu({ territory, x, y }); else setHint("You can manage population only in a blue territory."); }} /><div className="map-command-indicator" role="status" aria-live="polite"><span>ACTIVE COMMAND</span><strong>{activeCommand}</strong>{activeKey && <kbd>{activeKey}</kbd>}</div><div className="map-players" aria-label="Players alive"><span>PLAYERS ALIVE</span><strong className={blueAlive ? "blue alive" : "blue"}>● {demoMode ? "Blue AI" : "You"} {blueAlive ? "" : "· out"}</strong><strong className={redAlive ? "red alive" : "red"}>● Red AI {redAlive ? "" : "· out"}</strong></div></div>
         {contextMenu && <div className="province-menu" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => manageTerritory(contextMenu.territory)}>Manage population · {getTerritory(game.map, contextMenu.territory).label}</button><button onClick={() => setContextMenu(null)}>Close</button></div>}
         {showGuide ? <section className="match-guide" aria-label="Optional match guide"><div className="guide-header"><div><span>FIELD GUIDE · OPTIONAL</span><strong>{game.winner ? "Match complete" : nextGuideStep < 0 ? "Explore your own strategy" : `Suggested step ${nextGuideStep + 1} of ${guideSteps.length}`}</strong></div><button onClick={() => setShowGuide(false)} aria-label="Hide guide">Hide ×</button></div><p role="status">{game.winner ? (game.winner === "human" ? "Blue controls the frontier." : game.winner === "bot" ? "Red controls the frontier." : "Draw. The frontier remains contested.") : hint}</p><ol>{guideSteps.map((step, index) => <li key={step.title} className={step.done ? "done" : index === nextGuideStep ? "current" : ""}><span>{step.done ? "✓" : index + 1}</span><div><strong>{step.title}</strong>{index === nextGuideStep && <small>{step.detail}</small>}</div></li>)}</ol></section> : <button className="guide-reopen" onClick={() => setShowGuide(true)}>Show field guide</button>}
       </div>
@@ -160,7 +163,7 @@ export default function App() {
         <div><p className="eyebrow">COMMAND</p><div className="actions">{(["expand", "fortify", "supply", "trade"] as ActionMode[]).map((action, index) => <button key={action} className={mode === action && !buildingToPlace ? "active" : ""} onClick={() => activateMode(action)}><span>{action}</span><kbd>{index + 1}</kbd></button>)}</div><p className="description">{descriptions[mode]}</p>{mode === "expand" && selected && <div className="force-control"><div><p className="eyebrow">ATTACK FORCE</p><strong>{committedUnits} units</strong><span>{selectedUnits - committedUnits} remain defending {getTerritory(game.map, selected).label}.</span></div><input aria-label="Attack force" type="range" min="1" max={maxAttackUnits} value={committedUnits} onChange={(event) => setAttackUnits(Number(event.target.value))} /><div className="force-presets"><button type="button" onClick={() => setAttackUnits(1)}>1</button><button type="button" onClick={() => setAttackUnits(Math.max(1, Math.floor(maxAttackUnits / 2)))}>Half</button><button type="button" onClick={() => setAttackUnits(maxAttackUnits)}>Max</button></div></div>}</div>
         <label>Bot difficulty<select value={difficulty} onChange={(event) => setDifficulty(event.target.value as BotDifficulty)}><option value="easy">Easy</option><option value="normal">Normal</option><option value="expert">Expert</option></select></label>
         <label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => { setDemoMode(event.target.checked); setSelected(null); setBuildingToPlace(null); setHint(event.target.checked ? "Demo enabled. Blue and red commanders are fighting." : "Demo disabled. Blue is under your command."); }} />Auto-play blue (demo)</label>
-        <div className="controls"><button onClick={() => setPaused(!paused)}>{paused ? "Resume" : "Pause"}</button><button className="primary" onClick={() => setScreen("setup")}>Create match</button></div>
+        <div className="controls"><button className="primary" onClick={() => setScreen("setup")}>Create match</button></div>
         <div className="log"><p className="eyebrow">BATTLE LOG</p>{game.events.map((event, index) => <p key={`${event.tick}-${index}`}><span>{event.tick}s</span>{event.message}</p>)}</div>
       </aside>
     </section>
