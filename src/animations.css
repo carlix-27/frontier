@@ -82,6 +82,11 @@
 .province-menu { background: #091827; border: 1px solid #71b9da; box-shadow: 0 12px 30px #06111ccc; display: grid; max-width: min(240px, 90vw); padding: 5px; position: fixed; z-index: 10; }
 .province-menu button { background: transparent; border: 0; color: #f7fbff; cursor: pointer; padding: 8px 10px; text-align: left; }
 .province-menu button:hover { background: #173d62; }
+.map-stage { position: relative; }
+.map-command-indicator { align-items: center; background: #091827e8; border: 1px solid #7198b2; box-shadow: 0 4px 14px #06111c55; color: #f7fbff; display: grid; gap: 1px 10px; grid-template-columns: auto auto; left: 14px; max-width: calc(100% - 28px); padding: 7px 10px; pointer-events: none; position: absolute; top: 14px; }
+.map-command-indicator span { color: #a9c0d4; font-size: .58rem; font-weight: 800; grid-column: 1 / -1; letter-spacing: .1em; }
+.map-command-indicator strong { font-size: .82rem; text-transform: capitalize; }
+.map-command-indicator kbd { background: #4cc9f0; border-radius: 2px; color: #06111c; font-family: ui-monospace, monospace; font-size: .68rem; font-weight: 800; padding: 2px 5px; }
 @media (max-width: 520px) { .population-bar { align-items: stretch; grid-template-columns: 1fr; } .trade-budget { border-left: 0; border-top: 1px solid #2a435d; padding: 8px 0 0; } }
 
 .trade-routes { pointer-events: none; }
