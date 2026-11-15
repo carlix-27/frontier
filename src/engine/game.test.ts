@@ -1,12 +1,35 @@
 import { describe, expect, it } from "vitest";
 import { chooseBotCommand } from "../bots/basicBot";
 import { advanceGame, applyCommand, createInitialGame } from "./game";
+import { MAP_PRESETS } from "./map";
 
 describe("Frontier engine", () => {
   it("generates a deterministic fictional continent", () => {
     const first = createInitialGame(300, 77); const second = createInitialGame(300, 77);
     expect(first.map.territories).toEqual(second.map.territories);
     expect(first.map.territories).toHaveLength(32);
+  });
+  it("generates all five selectable coastlines with valid capitals", () => {
+    const maps = MAP_PRESETS.map((preset) => createInitialGame(300, preset.seed, preset.id).map);
+    expect(new Set(maps.map((map) => map.landPath)).size).toBe(5);
+    for (const map of maps) {
+      expect(map.territories).toHaveLength(32);
+      expect(map.territories.filter((region) => region.capitalFor)).toHaveLength(2);
+    }
+  });
+  it("requires prerequisites and credits for province population upgrades", () => {
+    const initial = createInitialGame();
+    const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
+    const funded = { ...initial, tradeCredits: { ...initial.tradeCredits, human: 12 } };
+    expect(applyCommand(funded, { type: "upgrade", player: "human", territory: capital.id, upgrade: "industry" }).ok).toBe(false);
+    const housing = applyCommand(funded, { type: "upgrade", player: "human", territory: capital.id, upgrade: "housing" });
+    expect(housing.ok).toBe(true);
+    if (!housing.ok) return;
+    expect(housing.state.tradeCredits.human).toBe(9);
+    const industry = applyCommand(housing.state, { type: "upgrade", player: "human", territory: capital.id, upgrade: "industry" });
+    expect(industry.ok).toBe(true);
+    if (!industry.ok) return;
+    expect(advanceGame(advanceGame(advanceGame(industry.state))).territories[capital.id].units).toBe(14);
   });
   it("grows population in a capital with initial housing", () => {
     let state = createInitialGame(); const capital = state.map.territories.find((territory) => territory.capitalFor === "human")!;

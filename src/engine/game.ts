@@ -1,11 +1,13 @@
 import { generateFrontierMap, getTerritory, linkId } from "./map";
-import type { BuildingType, CommandResult, GameCommand, GameState, PlayerId, TerritoryId, TerritoryState } from "./types";
+import type { BuildingType, CommandResult, GameCommand, GameState, PlayerId, PopulationUpgrade, TerritoryId, TerritoryState } from "./types";
 
 const PRODUCTION_INTERVAL = 3;
 const MAX_FORTIFICATION = 3;
 const EVENT_LIMIT = 8;
 export const BUILDING_COSTS: Record<BuildingType, number> = { housing: 4, factory: 7, railway: 5 };
 export const BUILDING_NAMES: Record<BuildingType, string> = { housing: "Housing district", factory: "Factory", railway: "Railway" };
+export const UPGRADE_NAMES: Record<PopulationUpgrade, string> = { housing: "Neighborhoods", industry: "Workshops", militia: "Civil guard" };
+export function upgradeCost(level: number): number { return 3 + level * 3; }
 
 function copyTerritories(territories: GameState["territories"]): GameState["territories"] {
   return Object.fromEntries(Object.entries(territories).map(([id, territory]) => [id, { ...territory }])) as Record<TerritoryId, TerritoryState>;
@@ -44,15 +46,27 @@ export function getPopulation(state: GameState, player: PlayerId): number {
   return Object.values(state.territories).reduce((total, territory) => total + (territory.owner === player ? territory.population : 0), 0);
 }
 
-export function createInitialGame(maxTicks = 300, seed = 27): GameState {
-  const map = generateFrontierMap(seed);
-  const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0, buildings: territory.capitalFor ? ["housing"] : [] }])) as Record<TerritoryId, TerritoryState>;
+export function createInitialGame(maxTicks = 300, seed = 27, presetId = "crownlands"): GameState {
+  const map = generateFrontierMap(seed, presetId);
+  const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0, buildings: territory.capitalFor ? ["housing"] : [], upgrades: {} }])) as Record<TerritoryId, TerritoryState>;
   return { tick: 0, maxTicks, map, territories, suppliedLinks: [], tradeRoutes: [], tradeCredits: { human: 0, bot: 0 }, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
 }
 
 export function applyCommand(state: GameState, command: GameCommand): CommandResult {
   if (state.winner) return { ok: false, state, reason: "The match is already over." };
   const territories = copyTerritories(state.territories);
+  if (command.type === "upgrade") {
+    const territory = territories[command.territory];
+    if (!territory || territory.owner !== command.player) return { ok: false, state, reason: "Manage population only in your territories." };
+    const level = territory.upgrades[command.upgrade] ?? 0;
+    if (level >= 3) return { ok: false, state, reason: "This branch is fully developed." };
+    if (command.upgrade === "industry" && (territory.upgrades.housing ?? 0) < 1) return { ok: false, state, reason: "Build Neighborhoods I first." };
+    if (command.upgrade === "militia" && (territory.upgrades.industry ?? 0) < 1) return { ok: false, state, reason: "Build Workshops I first." };
+    const cost = upgradeCost(level);
+    if (state.tradeCredits[command.player] < cost) return { ok: false, state, reason: `You need ${cost} trade credits.` };
+    territory.upgrades = { ...territory.upgrades, [command.upgrade]: level + 1 };
+    return { ok: true, state: withEvent({ ...state, territories, tradeCredits: { ...state.tradeCredits, [command.player]: state.tradeCredits[command.player] - cost } }, `${command.player} improved ${UPGRADE_NAMES[command.upgrade]} in ${getTerritory(state.map, command.territory).label}.`) };
+  }
   if (command.type === "build") {
     const territory = territories[command.territory];
     if (!territory || territory.owner !== command.player) return { ok: false, state, reason: "Build only in one of your territories." };
@@ -110,9 +124,10 @@ export function advanceGame(state: GameState): GameState {
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const definition of next.map.territories) {
     const territory = next.territories[definition.id];
     if (territory.owner && isConnectedToCapital(next, definition.id, territory.owner)) {
-      territory.population += (definition.capitalFor ? 3 : 1) + (territory.buildings.includes("housing") ? 2 : 0) + (territory.buildings.includes("railway") ? 1 : 0);
+      territory.population += (definition.capitalFor ? 3 : 1) + (territory.buildings.includes("housing") ? 2 : 0) + (territory.buildings.includes("railway") ? 1 : 0) + (territory.upgrades.housing ?? 0);
       const supplyBonus = definition.neighbours.some((neighbour) => next.suppliedLinks.includes(linkId(definition.id, neighbour))) ? 1 : 0;
-      territory.units += 1 + supplyBonus + (territory.buildings.includes("factory") ? 1 : 0);
+      territory.units += 1 + supplyBonus + (territory.buildings.includes("factory") ? 1 : 0) + (territory.upgrades.industry ?? 0);
+      territory.fortification = Math.min(MAX_FORTIFICATION, territory.fortification + ((territory.upgrades.militia ?? 0) >= 2 && next.tick % 9 === 0 ? 1 : 0));
     }
   }
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const route of next.tradeRoutes) {

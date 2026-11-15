@@ -1,7 +1,7 @@
 import { getTerritory } from "../engine/map";
 import type { BuildingType, GameState, TerritoryId } from "../engine/types";
 
-interface Props { game: GameState; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; }
+interface Props { game: GameState; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; onTerritoryContextMenu?: (id: TerritoryId, x: number, y: number) => void; }
 
 function CityScene({ x, y, buildings }: { x: number; y: number; buildings: BuildingType[] }) {
   if (buildings.length === 0) return null;
@@ -27,7 +27,7 @@ function seaRoute(from: { x: number; y: number }, to: { x: number; y: number }):
   return { path, roundTrip: `${path} C${to.x},${seaY} ${from.x},${seaY} ${from.x},${from.y}` };
 }
 
-export function GameMap({ game, selected, onTerritoryClick }: Props) {
+export function GameMap({ game, selected, onTerritoryClick, onTerritoryContextMenu }: Props) {
   const moving = game.events.filter((event) => event.movement).slice(0, 3);
   const captures = game.events.filter((event) => event.capture).slice(0, 2);
   return <svg className="game-map" viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
@@ -44,7 +44,7 @@ export function GameMap({ game, selected, onTerritoryClick }: Props) {
     <g clipPath="url(#land-clip)">
       {game.map.territories.map((territory) => {
         const state = game.territories[territory.id];
-        return <g key={territory.id} onClick={() => onTerritoryClick(territory.id)} className="territory-group">
+        return <g key={territory.id} onClick={() => onTerritoryClick(territory.id)} onContextMenu={(event) => { event.preventDefault(); onTerritoryContextMenu?.(territory.id, event.clientX, event.clientY); }} className="territory-group">
           <path d={territory.path} className={`territory ${state.owner ?? "neutral"} ${selected === territory.id ? "selected" : ""}`} />
           {state.fortification > 0 && <circle cx={territory.x} cy={territory.y - 18} r="7" className="fortification" />}
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}

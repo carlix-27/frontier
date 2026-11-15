@@ -53,6 +53,35 @@
 .city-train rect { fill: #d9774a; stroke: #48291e; stroke-width: .8; }
 .city-train circle { fill: #253b42; }
 .city-citizens circle { fill: #f7e279; stroke: #31433a; stroke-width: .5; }
+.lobby-shell { max-width: 980px; padding-top: 70px; }
+.lobby-card { background: #091827; border: 1px solid #36536c; margin-top: 32px; padding: 28px; }
+.lobby-card h2, .skill-heading h2 { margin: 0 0 8px; }
+.lobby-card p, .lobby-card small { color: #aabfd4; }
+.lobby-actions { display: flex; gap: 10px; margin-top: 22px; }
+.lobby-actions button, .map-option, .skill-heading button, .skill-node button { background: #14283b; border: 1px solid #3a5873; color: #f7fbff; cursor: pointer; padding: 10px 14px; }
+.lobby-actions .primary { background: #4cc9f0; color: #06111c; font-weight: 800; }
+.map-options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 22px; }
+.map-option { min-height: 98px; text-align: left; }
+.map-option strong, .map-option span { display: block; }
+.map-option span { color: #9eb6cb; font-size: .78rem; margin-top: 7px; }
+.map-option.active { border-color: #f7e279; box-shadow: inset 0 0 0 1px #f7e279; }
+.match-options { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 22px; }
+.match-options label { color: #b9cadd; display: grid; gap: 6px; }
+.match-options .demo-toggle { align-items: center; display: flex; }
+.skill-panel { background: #102338; border: 1px solid #597694; padding: 12px; }
+.skill-heading { align-items: start; display: flex; justify-content: space-between; }
+.skill-heading button { font-size: 1.3rem; line-height: 1; padding: 3px 8px; }
+.skill-panel p, .skill-panel small { color: #aabfd4; font-size: .76rem; }
+.skill-tree { border-left: 2px solid #71b9da; margin: 18px 0 12px 10px; padding-left: 12px; }
+.skill-node { align-items: center; display: grid; gap: 7px; grid-template-columns: 20px minmax(0, 1fr) auto; margin: 12px 0; }
+.skill-step { background: #4cc9f0; border-radius: 50%; color: #06111c; font-size: .7rem; font-weight: 800; padding: 3px; text-align: center; }
+.skill-node strong, .skill-node small { display: block; }
+.skill-node strong { font-size: .72rem; }
+.skill-node button { font-size: .7rem; padding: 5px; }
+.skill-node button:disabled { cursor: not-allowed; opacity: .45; }
+.province-menu { background: #091827; border: 1px solid #71b9da; box-shadow: 0 12px 30px #06111ccc; display: grid; max-width: min(240px, 90vw); padding: 5px; position: fixed; z-index: 10; }
+.province-menu button { background: transparent; border: 0; color: #f7fbff; cursor: pointer; padding: 8px 10px; text-align: left; }
+.province-menu button:hover { background: #173d62; }
 @media (max-width: 520px) { .population-bar { align-items: stretch; grid-template-columns: 1fr; } .trade-budget { border-left: 0; border-top: 1px solid #2a435d; padding: 8px 0 0; } }
 
 .trade-routes { pointer-events: none; }

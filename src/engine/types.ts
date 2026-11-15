@@ -1,5 +1,6 @@
 export type PlayerId = "human" | "bot";
 export type BuildingType = "housing" | "factory" | "railway";
+export type PopulationUpgrade = "housing" | "industry" | "militia";
 
 export type TerritoryId = string;
 
@@ -26,6 +27,7 @@ export interface TerritoryState {
   population: number;
   fortification: number;
   buildings: BuildingType[];
+  upgrades: Partial<Record<PopulationUpgrade, number>>;
 }
 
 export interface GameEvent {
@@ -98,8 +100,14 @@ export interface BuildCommand {
   territory: TerritoryId;
   building: BuildingType;
 }
+export interface UpgradeCommand {
+  type: "upgrade";
+  player: PlayerId;
+  territory: TerritoryId;
+  upgrade: PopulationUpgrade;
+}
 
-export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand | BuildCommand;
+export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand | BuildCommand | UpgradeCommand;
 
 export type CommandResult =
   | { ok: true; state: GameState }

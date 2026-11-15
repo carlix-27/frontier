@@ -60,25 +60,47 @@ function roughPath(vertices: Point[], roughness: number): string {
 
 export const LAND_PATH = roughPath(coastline, 10);
 
-function isOnLand(x: number, y: number): boolean {
+export const MAP_PRESETS = [
+  { id: "crownlands", name: "Crownlands", seed: 27, description: "A broad central continent" },
+  { id: "shattered-coast", name: "Shattered Coast", seed: 81, description: "Jagged western bays" },
+  { id: "highlands", name: "Highlands", seed: 142, description: "A tall northern landmass" },
+  { id: "southern-reach", name: "Southern Reach", seed: 306, description: "Wide southern frontier" },
+  { id: "crescent", name: "Crescent", seed: 519, description: "A narrow curved continent" },
+] as const;
+
+export function getMapPreset(id: string) { return MAP_PRESETS.find((preset) => preset.id === id) ?? MAP_PRESETS[0]; }
+
+function coastlineFor(presetId: string): Point[] {
+  if (presetId === "crownlands") return coastline;
+  const profile = MAP_PRESETS.findIndex((preset) => preset.id === presetId);
+  return coastline.map(([x, y], index) => {
+    const angle = (index / coastline.length) * Math.PI * 2;
+    const wave = Math.sin(angle * (profile + 2) + profile) * (10 + profile * 4);
+    const horizontal = presetId === "crescent" ? Math.sin((y - 300) / 160) * 40 : wave;
+    const vertical = presetId === "highlands" ? (y - 300) * .12 + wave : presetId === "southern-reach" ? 25 + wave : wave * .7;
+    return [Math.max(60, Math.min(840, x + horizontal)), Math.max(65, Math.min(535, y + vertical))];
+  });
+}
+
+function isOnLand(x: number, y: number, coast: Point[]): boolean {
   let contained = false;
-  for (let index = 0, previous = coastline.length - 1; index < coastline.length; previous = index++) {
-    const [currentX, currentY] = coastline[index];
-    const [previousX, previousY] = coastline[previous];
+  for (let index = 0, previous = coast.length - 1; index < coast.length; previous = index++) {
+    const [currentX, currentY] = coast[index];
+    const [previousX, previousY] = coast[previous];
     const intersects = currentY > y !== previousY > y && x < ((previousX - currentX) * (y - currentY)) / (previousY - currentY) + currentX;
     if (intersects) contained = !contained;
   }
   return contained;
 }
 
-function placePoints(seed: number): Array<[number, number]> {
+function placePoints(seed: number, coast: Point[]): Array<[number, number]> {
   const next = random(seed);
   const points: Array<[number, number]> = [];
   let attempts = 0;
   while (points.length < TERRITORY_COUNT && attempts < 20_000) {
     attempts += 1;
     const point: [number, number] = [75 + next() * 750, 95 + next() * 410];
-    if (!isOnLand(point[0], point[1])) continue;
+    if (!isOnLand(point[0], point[1], coast)) continue;
     if (points.every(([x, y]) => Math.hypot(x - point[0], y - point[1]) >= MINIMUM_DISTANCE)) points.push(point);
   }
   if (points.length < TERRITORY_COUNT) throw new Error("Could not generate enough land regions.");
@@ -89,8 +111,9 @@ function findCapitalIndex(points: Array<[number, number]>, player: PlayerId): nu
   return points.reduce((best, point, index) => player === "human" ? (point[0] < points[best][0] ? index : best) : (point[0] > points[best][0] ? index : best), 0);
 }
 
-export function generateFrontierMap(seed = 27): MapDefinition {
-  const points = placePoints(seed);
+export function generateFrontierMap(seed = 27, presetId = "crownlands"): MapDefinition {
+  const coast = coastlineFor(presetId);
+  const points = placePoints(seed, coast);
   const delaunay = Delaunay.from(points);
   const voronoi = delaunay.voronoi([45, 55, MAP_WIDTH - 45, MAP_HEIGHT - 55]);
   const humanCapital = findCapitalIndex(points, "human");
@@ -106,7 +129,7 @@ export function generateFrontierMap(seed = 27): MapDefinition {
     neighbours: Array.from(delaunay.neighbors(index)).map((neighbour) => `region-${neighbour + 1}`),
     capitalFor: index === humanCapital ? "human" : index === botCapital ? "bot" : undefined,
   }));
-  return { id: `frontier-${seed}`, seed, landPath: LAND_PATH, territories };
+  return { id: `${presetId}-${seed}`, seed, landPath: roughPath(coast, 10), territories };
 }
 
 export function getTerritory(map: MapDefinition, id: TerritoryId): TerritoryDefinition {
