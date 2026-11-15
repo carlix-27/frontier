@@ -48,19 +48,21 @@ export function GameMap({ game, selected, onTerritoryClick }: Props) {
           <path d={territory.path} className={`territory ${state.owner ?? "neutral"} ${selected === territory.id ? "selected" : ""}`} />
           {state.fortification > 0 && <circle cx={territory.x} cy={territory.y - 18} r="7" className="fortification" />}
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
-          <CityScene x={territory.x} y={territory.y} buildings={state.buildings} />
-          <text x={territory.x} y={territory.y - 4} className="region-name">{territory.label}</text>
-          <text x={territory.x} y={territory.y + 16} className="region-units">{state.units}</text>
         </g>;
       })}
       {game.suppliedLinks.map((link) => {
         const [from, to] = link.split(":"); const first = getTerritory(game.map, from); const second = getTerritory(game.map, to);
         return <line key={link} className="supply-link" x1={first.x} y1={first.y} x2={second.x} y2={second.y} />;
       })}
+      <g className="city-layer">{game.map.territories.map((territory) => <CityScene key={`city-${territory.id}`} x={territory.x} y={territory.y} buildings={game.territories[territory.id].buildings} />)}</g>
     </g>
     <g clipPath="url(#land-clip)">{captures.map((event) => {
       const capture = event.capture!; const target = getTerritory(game.map, capture.territory);
       return <g key={`capture-wave-${event.tick}-${capture.territory}`}><path d={target.path} className={`capture-before ${capture.previousOwner ?? "neutral"}`}><animate attributeName="fill-opacity" values="1;1;0" keyTimes="0;0.7;1" dur="1.05s" fill="freeze" /></path><path d={target.path} className={`capture-wave ${capture.player}`}><animate attributeName="fill-opacity" values="0;0.18;0.9;0" keyTimes="0;0.32;0.7;1" dur="1.05s" fill="freeze" /></path><path d={target.path} className="capture-border"><animate attributeName="stroke-opacity" values="0;1;0" dur="1.05s" fill="freeze" /></path></g>;
+    })}</g>
+    <g clipPath="url(#land-clip)" className="territory-label-layer">{game.map.territories.map((territory) => {
+      const state = game.territories[territory.id];
+      return <g key={`label-${territory.id}`}><text x={territory.x} y={territory.y - 4} className="region-name">{territory.label}</text><text x={territory.x} y={territory.y + 16} className="region-units">{state.units}</text></g>;
     })}</g>
     {moving.map((event, index) => {
       const move = event.movement!; const from = getTerritory(game.map, move.from); const to = getTerritory(game.map, move.to);
