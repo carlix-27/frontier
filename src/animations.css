@@ -20,6 +20,8 @@
 .actions button { align-items: center; display: flex; justify-content: space-between; }
 .actions kbd { background: #0a1725; border: 1px solid #597694; border-radius: 3px; color: #dbe9f6; font-family: ui-monospace, monospace; font-size: 0.75rem; font-weight: 800; min-width: 1.5rem; padding: 0.15rem 0.3rem; text-align: center; }
 .actions button.active kbd { background: #d9f8ff; border-color: #d9f8ff; color: #06111c; }
+.control-panel .demo-toggle { align-items: center; display: flex; gap: 9px; }
+.demo-toggle input { accent-color: #4cc9f0; height: 16px; margin: 0; width: 16px; }
 
 .trade-routes { pointer-events: none; }
 .trade-wake { fill: none; stroke: #d9f7f8; stroke-dasharray: 4 8; stroke-width: 1.5; opacity: 0.52; }

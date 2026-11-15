@@ -18,6 +18,10 @@ describe("Frontier engine", () => {
     const state = createInitialGame(); const command = chooseBotCommand(state, "normal");
     expect(command?.player).toBe("bot"); expect(command?.type).toBe("expand");
   });
+  it("selects a legal opening move for the blue commander", () => {
+    const state = createInitialGame(); const command = chooseBotCommand(state, "normal", "human");
+    expect(command?.player).toBe("human"); expect(command?.type).toBe("expand");
+  });
   it("moves troops when attacking a neighbouring region", () => {
     const state = createInitialGame(); const capital = state.map.territories.find((territory) => territory.capitalFor === "human")!; const target = capital.neighbours[0];
     const result = applyCommand(state, { type: "expand", player: "human", from: capital.id, to: target });
