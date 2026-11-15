@@ -13,8 +13,9 @@
 .capture-before.human { fill: #57aeca; }
 .capture-before.bot { fill: #d87c7c; }
 .capture-before.neutral { fill: #98b27b; }
-.capture-wave.human { fill: #57aeca; opacity: 0.92; }
-.capture-wave.bot { fill: #d87c7c; opacity: 0.92; }
+.capture-wave { pointer-events: none; }
+.capture-wave.human { fill: #57aeca; }
+.capture-wave.bot { fill: #d87c7c; }
 .capture-border { fill: none; stroke: #fff7cc; stroke-width: 5; pointer-events: none; }
 
 .actions button { align-items: center; display: flex; justify-content: space-between; }

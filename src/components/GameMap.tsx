@@ -31,7 +31,7 @@ export function GameMap({ game, selected, onTerritoryClick }: Props) {
   const moving = game.events.filter((event) => event.movement).slice(0, 3);
   const captures = game.events.filter((event) => event.capture).slice(0, 2);
   return <svg className="game-map" viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
-    <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient>{captures.map((event, index) => <clipPath id={`capture-${event.tick}-${index}`} key={`clip-${event.tick}-${index}`}><path d={getTerritory(game.map, event.capture!.territory).path} /></clipPath>)}</defs>
+    <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient></defs>
     <rect width="900" height="600" fill="url(#ocean)" />
     <g className="trade-routes">{game.tradeRoutes.map((route) => {
       const from = getTerritory(game.map, route.from); const to = getTerritory(game.map, route.to); const sea = seaRoute(from, to);
@@ -58,9 +58,9 @@ export function GameMap({ game, selected, onTerritoryClick }: Props) {
         return <line key={link} className="supply-link" x1={first.x} y1={first.y} x2={second.x} y2={second.y} />;
       })}
     </g>
-    <g clipPath="url(#land-clip)">{captures.map((event, index) => {
-      const capture = event.capture!; const source = getTerritory(game.map, capture.from); const target = getTerritory(game.map, capture.territory); const radius = Math.hypot(source.x - target.x, source.y - target.y) + 130;
-      return <g key={`capture-wave-${event.tick}-${capture.territory}`} clipPath={`url(#capture-${event.tick}-${index})`}><path d={target.path} className={`capture-before ${capture.previousOwner ?? "neutral"}`}><animate attributeName="fill-opacity" values="1;1;0" keyTimes="0;0.78;1" dur="1.4s" fill="freeze" /></path><circle className={`capture-wave ${capture.player}`} cx={source.x} cy={source.y} r="0"><animate attributeName="r" values={`0;${radius}`} dur="1.15s" fill="freeze" /></circle><path d={target.path} className="capture-border"><animate attributeName="stroke-opacity" values="0;1;0" dur="1.15s" fill="freeze" /></path></g>;
+    <g clipPath="url(#land-clip)">{captures.map((event) => {
+      const capture = event.capture!; const target = getTerritory(game.map, capture.territory);
+      return <g key={`capture-wave-${event.tick}-${capture.territory}`}><path d={target.path} className={`capture-before ${capture.previousOwner ?? "neutral"}`}><animate attributeName="fill-opacity" values="1;1;0" keyTimes="0;0.7;1" dur="1.05s" fill="freeze" /></path><path d={target.path} className={`capture-wave ${capture.player}`}><animate attributeName="fill-opacity" values="0;0.18;0.9;0" keyTimes="0;0.32;0.7;1" dur="1.05s" fill="freeze" /></path><path d={target.path} className="capture-border"><animate attributeName="stroke-opacity" values="0;1;0" dur="1.05s" fill="freeze" /></path></g>;
     })}</g>
     {moving.map((event, index) => {
       const move = event.movement!; const from = getTerritory(game.map, move.from); const to = getTerritory(game.map, move.to);
