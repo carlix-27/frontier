@@ -100,7 +100,9 @@ export function generateFrontierMap(seed = 27): MapDefinition {
     label: regionNames[index] ?? `Region ${index + 1}`,
     x,
     y,
-    path: roughPath(Array.from(voronoi.cellPolygon(index) ?? []) as Point[], 5),
+    // Province borders are intentionally more angular than the coastline.
+    // The edge key keeps both sides of a shared border exactly identical.
+    path: roughPath(Array.from(voronoi.cellPolygon(index) ?? []) as Point[], 11),
     neighbours: Array.from(delaunay.neighbors(index)).map((neighbour) => `region-${neighbour + 1}`),
     capitalFor: index === humanCapital ? "human" : index === botCapital ? "bot" : undefined,
   }));
