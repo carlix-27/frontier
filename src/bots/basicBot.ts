@@ -1,7 +1,13 @@
 import { getTerritory, linkId } from "../engine/map";
-import type { GameCommand, GameState, PlayerId } from "../engine/types";
+import { getPopulation, POPULATION_SKILL_REQUIREMENT } from "../engine/game";
+import type { GameCommand, GameState, PlayerId, PopulationSkill } from "../engine/types";
 
 export type BotDifficulty = "easy" | "normal" | "expert";
+
+export function choosePopulationSkill(state: GameState, player: PlayerId): PopulationSkill | null {
+  if (state.populationSkills[player] || getPopulation(state, player) < POPULATION_SKILL_REQUIREMENT) return null;
+  return player === "human" ? "mobilization" : "merchant-league";
+}
 
 export function chooseBotCommand(state: GameState, difficulty: BotDifficulty, player: PlayerId = "bot"): GameCommand | null {
   const owned = Object.entries(state.territories).filter(([, territory]) => territory.owner === player).map(([id]) => id);

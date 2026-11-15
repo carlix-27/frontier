@@ -42,4 +42,14 @@ describe("Frontier engine", () => {
     expect(after.tradeRoutes).toHaveLength(1);
     expect(after.territories[destination].population).toBe(before + 3);
   });
+  it("allows one population doctrine and applies its production bonus", () => {
+    const initial = createInitialGame(); const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
+    const state = { ...initial, territories: { ...initial.territories, [capital.id]: { ...initial.territories[capital.id], population: 300 } } };
+    const doctrine = applyCommand(state, { type: "population-skill", player: "human", skill: "mobilization" });
+    expect(doctrine.ok).toBe(true);
+    if (!doctrine.ok) return;
+    const after = advanceGame(advanceGame(advanceGame(doctrine.state)));
+    expect(after.territories[capital.id].units).toBe(14);
+    expect(applyCommand(after, { type: "population-skill", player: "human", skill: "civic-growth" }).ok).toBe(false);
+  });
 });

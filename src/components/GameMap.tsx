@@ -40,7 +40,6 @@ export function GameMap({ game, selected, onTerritoryClick }: Props) {
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
           <text x={territory.x} y={territory.y - 4} className="region-name">{territory.label}</text>
           <text x={territory.x} y={territory.y + 16} className="region-units">{state.units}</text>
-          <text key={`${territory.id}-${state.population}`} x={territory.x} y={territory.y + 31} className="region-population">{state.population} pop</text>
         </g>;
       })}
       {game.suppliedLinks.map((link) => {

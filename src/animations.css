@@ -22,6 +22,20 @@
 .actions button.active kbd { background: #d9f8ff; border-color: #d9f8ff; color: #06111c; }
 .control-panel .demo-toggle { align-items: center; display: flex; gap: 9px; }
 .demo-toggle input { accent-color: #4cc9f0; height: 16px; margin: 0; width: 16px; }
+.population-bar { align-items: end; border: 1px solid #2a435d; display: grid; gap: 14px; grid-template-columns: auto minmax(120px, 1fr); margin-bottom: 10px; padding: 10px 12px; }
+.population-bar .eyebrow { margin-bottom: 3px; }
+.population-bar strong { color: #f7fbff; font-size: 1.1rem; }
+.population-bar span { color: #8da6c1; display: block; font-size: .72rem; font-weight: 700; margin-top: 2px; }
+.population-track { background: #112a3e; border: 1px solid #375875; height: 10px; overflow: hidden; }
+.population-track i { background: linear-gradient(90deg, #4cc9f0, #f7e279); display: block; height: 100%; transition: width .5s ease-out; }
+.population-tree { border-bottom: 1px solid #2a435d; padding-bottom: 16px; }
+.population-tree .description { margin-top: 0; }
+.skill-card { background: #102338; border: 1px solid #35536e; color: #dce8f5; display: grid; gap: 3px; margin-top: 7px; padding: 9px 10px; text-align: left; width: 100%; }
+.skill-card strong { font-size: .8rem; }
+.skill-card span { color: #8da6c1; font-size: .72rem; line-height: 1.3; }
+.skill-card:not(:disabled):hover, .skill-card.active { border-color: #f7e279; background: #273326; }
+.skill-card:disabled { cursor: not-allowed; opacity: .48; }
+@media (max-width: 520px) { .population-bar { align-items: stretch; grid-template-columns: 1fr; } }
 
 .trade-routes { pointer-events: none; }
 .trade-wake { fill: none; stroke: #d9f7f8; stroke-dasharray: 4 8; stroke-width: 1.5; opacity: 0.52; }

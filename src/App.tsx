@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { chooseBotCommand, type BotDifficulty } from "./bots/basicBot";
+import { chooseBotCommand, choosePopulationSkill, type BotDifficulty } from "./bots/basicBot";
 import { GameMap } from "./components/GameMap";
-import { advanceGame, applyCommand, createInitialGame, getControlScore } from "./engine/game";
+import { advanceGame, applyCommand, createInitialGame, getControlScore, getPopulation, POPULATION_SKILL_REQUIREMENT } from "./engine/game";
 import { getTerritory } from "./engine/map";
-import type { GameCommand, PlayerId, TerritoryId } from "./engine/types";
+import type { GameCommand, PlayerId, PopulationSkill, TerritoryId } from "./engine/types";
 
 type ActionMode = "expand" | "fortify" | "supply" | "trade";
 const descriptions: Record<ActionMode, string> = { expand: "Move half your force across a shared frontier.", fortify: "Spend 2 units to increase a territory's defence.", supply: "Open a route between adjacent friendly territories for faster growth.", trade: "Connect two friendly ports. Trade routes grow the destination population." };
+const populationSkillCards: Array<{ skill: PopulationSkill; title: string; description: string }> = [
+  { skill: "mobilization", title: "Mobilization", description: "+1 unit on every production cycle." },
+  { skill: "civic-growth", title: "Civic Growth", description: "+1 population in every owned region." },
+  { skill: "merchant-league", title: "Merchant League", description: "Trade deliveries grant +4 population." },
+];
 
 export default function App() {
   const [game, setGame] = useState(() => createInitialGame());
@@ -16,7 +21,7 @@ export default function App() {
   const [demoMode, setDemoMode] = useState(true);
   const [paused, setPaused] = useState(false);
   const [hint, setHint] = useState("Select a friendly region to begin.");
-  const scores = useMemo(() => ({ human: getControlScore(game, "human"), bot: getControlScore(game, "bot"), population: Object.values(game.territories).reduce((total, territory) => total + (territory.owner === "human" ? territory.population : 0), 0) }), [game]);
+  const scores = useMemo(() => ({ human: getControlScore(game, "human"), bot: getControlScore(game, "bot"), population: getPopulation(game, "human") }), [game]);
 
   function activateMode(action: ActionMode) {
     setMode(action);
@@ -32,6 +37,8 @@ export default function App() {
       if (!next.winner && next.tick % cadence === 0) {
         const commanders: PlayerId[] = demoMode ? ["human", "bot"] : ["bot"];
         for (const player of commanders) {
+          const populationSkill = choosePopulationSkill(next, player);
+          if (populationSkill) { const result = applyCommand(next, { type: "population-skill", player, skill: populationSkill }); if (result.ok) next = result.state; }
           const command = chooseBotCommand(next, difficulty, player);
           if (command) { const result = applyCommand(next, command); if (result.ok) next = result.state; }
           if (next.winner) break;
@@ -57,6 +64,7 @@ export default function App() {
   }, []);
 
   function submit(command: GameCommand) { const result = applyCommand(game, command); if (!result.ok) { setHint(result.reason); return; } setGame(result.state); setSelected(null); setHint("Order executed. Watch the troops cross the frontier."); }
+  function selectPopulationSkill(skill: PopulationSkill) { submit({ type: "population-skill", player: "human", skill }); }
   function handleTerritory(id: TerritoryId) {
     if (game.winner) return;
     if (mode === "fortify") { submit({ type: "fortify", player: "human", territory: id }); return; }
@@ -67,5 +75,7 @@ export default function App() {
   }
   function newMatch() { setGame(createInitialGame(300, Math.floor(Math.random() * 100_000))); setSelected(null); setPaused(false); setHint(demoMode ? "New continent generated. Blue and red commanders are fighting." : "New continent generated. Select a friendly region to begin."); }
   const remaining = Math.max(0, game.maxTicks - game.tick);
-  return <main className="app-shell"><header><div><p className="eyebrow">LOCAL REACT PROTOTYPE · GENERATED CONTINENT</p><h1>Frontier</h1><p className="subtitle">Every cell is land. Every border is a decision.</p></div><div className="scoreboard"><div><span>{demoMode ? "Blue AI" : "You"}</span><strong>{scores.human}</strong></div><div><span>Red AI</span><strong>{scores.bot}</strong></div><div><span>Population</span><strong>{scores.population.toLocaleString()}</strong></div><div><span>Time</span><strong>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</strong></div></div></header><section className="game-layout"><div className="map-panel"><GameMap game={game} selected={selected} onTerritoryClick={handleTerritory} /><p className="hint">{game.winner ? (game.winner === "human" ? "Blue controls the frontier." : game.winner === "bot" ? "Red controls the frontier." : "Draw. The frontier remains contested.") : hint}</p></div><aside className="control-panel"><div><p className="eyebrow">COMMAND</p><div className="actions">{(["expand", "fortify", "supply", "trade"] as ActionMode[]).map((action, index) => <button key={action} className={mode === action ? "active" : ""} onClick={() => activateMode(action)}><span>{action}</span><kbd>{index + 1}</kbd></button>)}</div><p className="description">{descriptions[mode]}</p></div><label>Bot difficulty<select value={difficulty} onChange={(event) => setDifficulty(event.target.value as BotDifficulty)}><option value="easy">Easy</option><option value="normal">Normal</option><option value="expert">Expert</option></select></label><label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => { setDemoMode(event.target.checked); setSelected(null); setHint(event.target.checked ? "Demo enabled. Blue and red commanders are fighting." : "Demo disabled. Blue is under your command."); }} />Auto-play blue (demo)</label><div className="controls"><button onClick={() => setPaused(!paused)}>{paused ? "Resume" : "Pause"}</button><button className="primary" onClick={newMatch}>New continent</button></div><div className="log"><p className="eyebrow">BATTLE LOG</p>{game.events.map((event, index) => <p key={`${event.tick}-${index}`}><span>{event.tick}s</span>{event.message}</p>)}</div></aside></section></main>;
+  const activePopulationSkill = game.populationSkills.human;
+  const populationProgress = Math.min(100, Math.round((scores.population / POPULATION_SKILL_REQUIREMENT) * 100));
+  return <main className="app-shell"><header><div><p className="eyebrow">LOCAL REACT PROTOTYPE · GENERATED CONTINENT</p><h1>Frontier</h1><p className="subtitle">Every cell is land. Every border is a decision.</p></div><div className="scoreboard"><div><span>{demoMode ? "Blue AI" : "You"}</span><strong>{scores.human}</strong></div><div><span>Red AI</span><strong>{scores.bot}</strong></div><div><span>Population</span><strong>{scores.population.toLocaleString()}</strong></div><div><span>Time</span><strong>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</strong></div></div></header><section className="game-layout"><div className="map-panel"><div className="population-bar"><div><p className="eyebrow">POPULATION RESERVES</p><strong>{scores.population.toLocaleString()} / {POPULATION_SKILL_REQUIREMENT}</strong><span>{activePopulationSkill ? `${populationSkillCards.find((card) => card.skill === activePopulationSkill)?.title} active` : "Choose one doctrine when ready"}</span></div><div className="population-track"><i style={{ width: `${populationProgress}%` }} /></div></div><GameMap game={game} selected={selected} onTerritoryClick={handleTerritory} /><p className="hint">{game.winner ? (game.winner === "human" ? "Blue controls the frontier." : game.winner === "bot" ? "Red controls the frontier." : "Draw. The frontier remains contested.") : hint}</p></div><aside className="control-panel"><div className="population-tree"><p className="eyebrow">ONE DOCTRINE PER MATCH</p><p className="description">Reach {POPULATION_SKILL_REQUIREMENT} population to shape your nation.</p>{populationSkillCards.map((card) => <button key={card.skill} className={activePopulationSkill === card.skill ? "skill-card active" : "skill-card"} disabled={Boolean(activePopulationSkill) || scores.population < POPULATION_SKILL_REQUIREMENT} onClick={() => selectPopulationSkill(card.skill)}><strong>{card.title}</strong><span>{card.description}</span></button>)}</div><div><p className="eyebrow">COMMAND</p><div className="actions">{(["expand", "fortify", "supply", "trade"] as ActionMode[]).map((action, index) => <button key={action} className={mode === action ? "active" : ""} onClick={() => activateMode(action)}><span>{action}</span><kbd>{index + 1}</kbd></button>)}</div><p className="description">{descriptions[mode]}</p></div><label>Bot difficulty<select value={difficulty} onChange={(event) => setDifficulty(event.target.value as BotDifficulty)}><option value="easy">Easy</option><option value="normal">Normal</option><option value="expert">Expert</option></select></label><label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => { setDemoMode(event.target.checked); setSelected(null); setHint(event.target.checked ? "Demo enabled. Blue and red commanders are fighting." : "Demo disabled. Blue is under your command."); }} />Auto-play blue (demo)</label><div className="controls"><button onClick={() => setPaused(!paused)}>{paused ? "Resume" : "Pause"}</button><button className="primary" onClick={newMatch}>New continent</button></div><div className="log"><p className="eyebrow">BATTLE LOG</p>{game.events.map((event, index) => <p key={`${event.tick}-${index}`}><span>{event.tick}s</span>{event.message}</p>)}</div></aside></section></main>;
 }
