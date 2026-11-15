@@ -8,11 +8,11 @@ describe("Frontier engine", () => {
     expect(first.map.territories).toEqual(second.map.territories);
     expect(first.map.territories).toHaveLength(32);
   });
-  it("produces units for a capital-connected region", () => {
+  it("grows population in a capital with initial housing", () => {
     let state = createInitialGame(); const capital = state.map.territories.find((territory) => territory.capitalFor === "human")!;
     state = advanceGame(advanceGame(advanceGame(state)));
     expect(state.territories[capital.id].units).toBe(13);
-    expect(state.territories[capital.id].population).toBe(223);
+    expect(state.territories[capital.id].population).toBe(225);
   });
   it("selects a legal opening move for the normal bot", () => {
     const state = createInitialGame(); const command = chooseBotCommand(state, "normal");
@@ -41,15 +41,17 @@ describe("Frontier engine", () => {
     const after = advanceGame(advanceGame(advanceGame(trade.state)));
     expect(after.tradeRoutes).toHaveLength(1);
     expect(after.territories[destination].population).toBe(before + 3);
+    expect(after.tradeCredits.human).toBe(2);
   });
-  it("allows one population doctrine and applies its production bonus", () => {
+  it("spends trade credits to build a factory with a production bonus", () => {
     const initial = createInitialGame(); const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
-    const state = { ...initial, territories: { ...initial.territories, [capital.id]: { ...initial.territories[capital.id], population: 300 } } };
-    const doctrine = applyCommand(state, { type: "population-skill", player: "human", skill: "mobilization" });
-    expect(doctrine.ok).toBe(true);
-    if (!doctrine.ok) return;
-    const after = advanceGame(advanceGame(advanceGame(doctrine.state)));
+    const state = { ...initial, tradeCredits: { ...initial.tradeCredits, human: 7 } };
+    const construction = applyCommand(state, { type: "build", player: "human", territory: capital.id, building: "factory" });
+    expect(construction.ok).toBe(true);
+    if (!construction.ok) return;
+    expect(construction.state.tradeCredits.human).toBe(0);
+    const after = advanceGame(advanceGame(advanceGame(construction.state)));
     expect(after.territories[capital.id].units).toBe(14);
-    expect(applyCommand(after, { type: "population-skill", player: "human", skill: "civic-growth" }).ok).toBe(false);
+    expect(applyCommand(after, { type: "build", player: "human", territory: capital.id, building: "factory" }).ok).toBe(false);
   });
 });

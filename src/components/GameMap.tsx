@@ -1,7 +1,17 @@
 import { getTerritory } from "../engine/map";
-import type { GameState, TerritoryId } from "../engine/types";
+import type { BuildingType, GameState, TerritoryId } from "../engine/types";
 
 interface Props { game: GameState; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; }
+
+function CityScene({ x, y, buildings }: { x: number; y: number; buildings: BuildingType[] }) {
+  if (buildings.length === 0) return null;
+  return <g className="city-scene" transform={`translate(${x - 18} ${y - 42})`}>
+    {buildings.includes("housing") && <g className="city-house"><path d="M0,12 L9,4 L18,12 V23 H0 Z" /><rect x="7" y="16" width="4" height="7" /></g>}
+    {buildings.includes("factory") && <g className="city-factory" transform="translate(19 4)"><path d="M0,20 V8 L6,12 L10,7 L14,12 V20 Z" /><rect x="13" y="0" width="4" height="20" /><circle cx="15" cy="-3" r="2" className="city-smoke"><animate attributeName="cy" values="-3;-12" dur="2s" repeatCount="indefinite" /><animate attributeName="opacity" values=".7;0" dur="2s" repeatCount="indefinite" /></circle></g>}
+    {buildings.includes("railway") && <g className="city-railway" transform="translate(-3 26)"><path d="M0,0 H41" /><g className="city-train"><animateTransform attributeName="transform" type="translate" values="0 0;20 0;0 0" dur="2.4s" repeatCount="indefinite" /><rect x="0" y="-5" width="11" height="5" /><circle cx="3" cy="1" r="1.4" /><circle cx="8" cy="1" r="1.4" /></g></g>}
+    <g className="city-citizens"><circle cx="4" cy="27" r="1.4"><animate attributeName="cx" values="4;14;4" dur="2.2s" repeatCount="indefinite" /></circle><circle cx="17" cy="27" r="1.4"><animate attributeName="cx" values="17;28;17" dur="2.8s" repeatCount="indefinite" /></circle></g>
+  </g>;
+}
 
 function seaRoute(from: { x: number; y: number }, to: { x: number; y: number }): { path: string; roundTrip: string } {
   const midpoint = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
@@ -38,6 +48,7 @@ export function GameMap({ game, selected, onTerritoryClick }: Props) {
           <path d={territory.path} className={`territory ${state.owner ?? "neutral"} ${selected === territory.id ? "selected" : ""}`} />
           {state.fortification > 0 && <circle cx={territory.x} cy={territory.y - 18} r="7" className="fortification" />}
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
+          <CityScene x={territory.x} y={territory.y} buildings={state.buildings} />
           <text x={territory.x} y={territory.y - 4} className="region-name">{territory.label}</text>
           <text x={territory.x} y={territory.y + 16} className="region-units">{state.units}</text>
         </g>;

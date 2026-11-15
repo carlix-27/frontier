@@ -1,5 +1,5 @@
 export type PlayerId = "human" | "bot";
-export type PopulationSkill = "mobilization" | "civic-growth" | "merchant-league";
+export type BuildingType = "housing" | "factory" | "railway";
 
 export type TerritoryId = string;
 
@@ -25,6 +25,7 @@ export interface TerritoryState {
   units: number;
   population: number;
   fortification: number;
+  buildings: BuildingType[];
 }
 
 export interface GameEvent {
@@ -51,7 +52,7 @@ export interface GameState {
   territories: Record<TerritoryId, TerritoryState>;
   suppliedLinks: string[];
   tradeRoutes: TradeRoute[];
-  populationSkills: Partial<Record<PlayerId, PopulationSkill>>;
+  tradeCredits: Record<PlayerId, number>;
   events: GameEvent[];
   winner: PlayerId | "draw" | null;
 }
@@ -90,13 +91,14 @@ export interface TradeCommand {
   to: TerritoryId;
 }
 
-export interface PopulationSkillCommand {
-  type: "population-skill";
+export interface BuildCommand {
+  type: "build";
   player: PlayerId;
-  skill: PopulationSkill;
+  territory: TerritoryId;
+  building: BuildingType;
 }
 
-export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand | PopulationSkillCommand;
+export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand | BuildCommand;
 
 export type CommandResult =
   | { ok: true; state: GameState }

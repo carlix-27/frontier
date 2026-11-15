@@ -1,10 +1,11 @@
 import { generateFrontierMap, getTerritory, linkId } from "./map";
-import type { CommandResult, GameCommand, GameState, PlayerId, PopulationSkill, TerritoryId, TerritoryState } from "./types";
+import type { BuildingType, CommandResult, GameCommand, GameState, PlayerId, TerritoryId, TerritoryState } from "./types";
 
 const PRODUCTION_INTERVAL = 3;
 const MAX_FORTIFICATION = 3;
 const EVENT_LIMIT = 8;
-export const POPULATION_SKILL_REQUIREMENT = 300;
+export const BUILDING_COSTS: Record<BuildingType, number> = { housing: 4, factory: 7, railway: 5 };
+export const BUILDING_NAMES: Record<BuildingType, string> = { housing: "Housing district", factory: "Factory", railway: "Railway" };
 
 function copyTerritories(territories: GameState["territories"]): GameState["territories"] {
   return Object.fromEntries(Object.entries(territories).map(([id, territory]) => [id, { ...territory }])) as Record<TerritoryId, TerritoryState>;
@@ -43,21 +44,23 @@ export function getPopulation(state: GameState, player: PlayerId): number {
   return Object.values(state.territories).reduce((total, territory) => total + (territory.owner === player ? territory.population : 0), 0);
 }
 
-const skillNames: Record<PopulationSkill, string> = { mobilization: "Mobilization", "civic-growth": "Civic Growth", "merchant-league": "Merchant League" };
-
 export function createInitialGame(maxTicks = 300, seed = 27): GameState {
   const map = generateFrontierMap(seed);
-  const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0 }])) as Record<TerritoryId, TerritoryState>;
-  return { tick: 0, maxTicks, map, territories, suppliedLinks: [], tradeRoutes: [], populationSkills: {}, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
+  const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0, buildings: territory.capitalFor ? ["housing"] : [] }])) as Record<TerritoryId, TerritoryState>;
+  return { tick: 0, maxTicks, map, territories, suppliedLinks: [], tradeRoutes: [], tradeCredits: { human: 0, bot: 0 }, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
 }
 
 export function applyCommand(state: GameState, command: GameCommand): CommandResult {
   if (state.winner) return { ok: false, state, reason: "The match is already over." };
   const territories = copyTerritories(state.territories);
-  if (command.type === "population-skill") {
-    if (state.populationSkills[command.player]) return { ok: false, state, reason: "You can choose only one population doctrine per match." };
-    if (getPopulation(state, command.player) < POPULATION_SKILL_REQUIREMENT) return { ok: false, state, reason: `Population doctrine requires ${POPULATION_SKILL_REQUIREMENT} population.` };
-    return { ok: true, state: withEvent({ ...state, populationSkills: { ...state.populationSkills, [command.player]: command.skill } }, `${command.player} adopted ${skillNames[command.skill]}.`) };
+  if (command.type === "build") {
+    const territory = territories[command.territory];
+    if (!territory || territory.owner !== command.player) return { ok: false, state, reason: "Build only in one of your territories." };
+    if (territory.buildings.includes(command.building)) return { ok: false, state, reason: "That territory already has this infrastructure." };
+    const cost = BUILDING_COSTS[command.building];
+    if (state.tradeCredits[command.player] < cost) return { ok: false, state, reason: `You need ${cost} trade credits.` };
+    territory.buildings = [...territory.buildings, command.building];
+    return { ok: true, state: withEvent({ ...state, territories, tradeCredits: { ...state.tradeCredits, [command.player]: state.tradeCredits[command.player] - cost } }, `${command.player} built ${BUILDING_NAMES[command.building]} in ${getTerritory(state.map, command.territory).label}.`) };
   }
   if (command.type === "fortify") {
     const territory = territories[command.territory];
@@ -101,18 +104,17 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
 
 export function advanceGame(state: GameState): GameState {
   if (state.winner) return state;
-  let next: GameState = { ...state, tick: state.tick + 1, territories: copyTerritories(state.territories) };
+  let next: GameState = { ...state, tick: state.tick + 1, territories: copyTerritories(state.territories), tradeCredits: { ...state.tradeCredits } };
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const definition of next.map.territories) {
     const territory = next.territories[definition.id];
     if (territory.owner && isConnectedToCapital(next, definition.id, territory.owner)) {
-      const skill = next.populationSkills[territory.owner];
-      territory.population += (definition.capitalFor ? 3 : 1) + (skill === "civic-growth" ? 1 : 0);
+      territory.population += (definition.capitalFor ? 3 : 1) + (territory.buildings.includes("housing") ? 2 : 0) + (territory.buildings.includes("railway") ? 1 : 0);
       const supplyBonus = definition.neighbours.some((neighbour) => next.suppliedLinks.includes(linkId(definition.id, neighbour))) ? 1 : 0;
-      territory.units += 1 + supplyBonus + (skill === "mobilization" ? 1 : 0);
+      territory.units += 1 + supplyBonus + (territory.buildings.includes("factory") ? 1 : 0);
     }
   }
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const route of next.tradeRoutes) {
-    if (next.territories[route.from].owner === route.player && next.territories[route.to].owner === route.player) next.territories[route.to].population += next.populationSkills[route.player] === "merchant-league" ? 4 : 2;
+    if (next.territories[route.from].owner === route.player && next.territories[route.to].owner === route.player) { next.territories[route.to].population += 2; next.tradeCredits[route.player] += 2; }
   }
   if (next.territories[capitalId(next, "human")].owner === "bot") return withEvent({ ...next, winner: "bot" }, "bot captured the enemy capital.");
   if (next.territories[capitalId(next, "bot")].owner === "human") return withEvent({ ...next, winner: "human" }, "human captured the enemy capital.");
