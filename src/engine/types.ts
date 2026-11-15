@@ -39,6 +39,7 @@ export interface GameEvent {
     territory: TerritoryId;
     from: TerritoryId;
     player: PlayerId;
+    previousOwner: PlayerId | null;
   };
 }
 

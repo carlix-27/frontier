@@ -73,7 +73,7 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
   if (attackers > defence) {
     const previousOwner = target.owner; target.owner = command.player; target.units = attackers - defence; target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
     const message = previousOwner ? `${command.player} captured ${getTerritory(state.map, command.to).label}.` : `${command.player} claimed ${getTerritory(state.map, command.to).label}.`;
-    return { ok: true, state: withEvent({ ...state, territories }, message, movement, { territory: command.to, from: command.from, player: command.player }) };
+    return { ok: true, state: withEvent({ ...state, territories }, message, movement, { territory: command.to, from: command.from, player: command.player, previousOwner }) };
   }
   target.units = Math.max(1, defence - attackers);
   return { ok: true, state: withEvent({ ...state, territories }, `${command.player}'s attack was repelled.`, movement) };
