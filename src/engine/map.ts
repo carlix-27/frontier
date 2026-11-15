@@ -6,7 +6,8 @@ const MAP_HEIGHT = 600;
 const TERRITORY_COUNT = 32;
 const MINIMUM_DISTANCE = 63;
 
-export const LAND_PATH = "M93,328 C77,230 126,139 220,122 C289,65 395,88 454,130 C548,75 675,109 722,180 C825,207 849,322 786,378 C787,465 677,524 586,488 C508,542 394,512 344,472 C243,517 136,465 144,383 C111,370 96,351 93,328 Z";
+const coastline: Array<[number, number]> = [[105,360],[79,332],[93,299],[87,267],[121,238],[123,207],[155,194],[171,158],[207,151],[230,120],[267,133],[294,108],[332,122],[356,99],[398,116],[430,145],[471,139],[501,109],[535,114],[563,91],[601,105],[632,131],[672,127],[695,157],[731,165],[748,200],[786,214],[803,246],[783,275],[817,307],[795,341],[802,374],[770,393],[758,430],[726,444],[697,477],[654,469],[624,501],[579,490],[547,516],[500,500],[462,514],[426,489],[390,498],[357,473],[318,487],[279,465],[245,477],[211,449],[177,458],[149,424],[118,412],[128,382]];
+export const LAND_PATH = `${coastline.map(([x, y], index) => `${index === 0 ? "M" : "L"}${x},${y}`).join(" ")} Z`;
 
 const regionNames = ["Aster", "Bramble", "Cinder", "Dawnreach", "Ember", "Fallow", "Gale", "Hollow", "Ironwood", "Juniper", "Kestrel", "Larkspur", "Morrow", "Northwatch", "Oaken", "Palisade", "Quartz", "Rookery", "Sable", "Thorn", "Umber", "Vale", "Westmere", "Yarrow", "Zephyr", "Alder", "Bracken", "Crownfall", "Drift", "Ebon", "Flint", "Glimmer"];
 
@@ -22,10 +23,14 @@ function random(seed: number): () => number {
 }
 
 function isOnLand(x: number, y: number): boolean {
-  const normalizedX = (x - MAP_WIDTH / 2) / 365;
-  const normalizedY = (y - MAP_HEIGHT / 2) / 215;
-  const coastline = 0.11 * Math.sin(x / 67) + 0.07 * Math.cos(y / 43) + 0.05 * Math.sin((x + y) / 52);
-  return normalizedX ** 2 + normalizedY ** 2 < 0.94 + coastline;
+  let contained = false;
+  for (let index = 0, previous = coastline.length - 1; index < coastline.length; previous = index++) {
+    const [currentX, currentY] = coastline[index];
+    const [previousX, previousY] = coastline[previous];
+    const intersects = currentY > y !== previousY > y && x < ((previousX - currentX) * (y - currentY)) / (previousY - currentY) + currentX;
+    if (intersects) contained = !contained;
+  }
+  return contained;
 }
 
 function placePoints(seed: number): Array<[number, number]> {

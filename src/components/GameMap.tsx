@@ -6,9 +6,12 @@ interface Props { game: GameState; selected: TerritoryId | null; onTerritoryClic
 export function GameMap({ game, selected, onTerritoryClick }: Props) {
   const moving = game.events.filter((event) => event.movement).slice(0, 3);
   return <svg className="game-map" viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
-    <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#163c62" /><stop offset="1" stopColor="#071522" /></linearGradient></defs>
+    <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient></defs>
     <rect width="900" height="600" fill="url(#ocean)" />
+    <path d={game.map.landPath} className="land-bed" />
     <path d={game.map.landPath} className="land-outline" />
+    <g className="decorative-islands"><path d="M106,150 l13,-8 18,5 7,13 -16,10 -19,-4 Z" /><path d="M755,470 l12,-6 17,7 1,14 -18,7 -13,-8 Z" /><path d="M160,480 l10,-5 12,7 -2,12 -15,2 Z" /></g>
+    <path className="river" d="M556,145 C535,200 570,238 531,284 C495,328 526,372 482,430" />
     <g clipPath="url(#land-clip)">
       {game.map.territories.map((territory) => {
         const state = game.territories[territory.id];
