@@ -10,7 +10,7 @@ type ActionMode = "expand" | "fortify" | "supply" | "trade";
 type GameSpeed = 1 | 2 | 4;
 
 const descriptions: Record<ActionMode, string> = {
-  expand: "Move half your force across a shared frontier.",
+  expand: "Move your chosen force across a shared frontier or marked sea route.",
   fortify: "Spend 2 units to increase a territory's defence.",
   supply: "Open a route between adjacent friendly territories for faster growth.",
   trade: "Connect two friendly ports. Every delivery brings population and trade credits.",
@@ -144,7 +144,7 @@ export default function App() {
     if (mode === "fortify") { submit({ type: "fortify", player: "human", territory: id }); return; }
     if (!selected) {
       if (game.territories[id].owner !== "human") { setHint("Choose one of your own regions as the origin."); return; }
-      setSelected(id); setAttackUnits(mode === "expand" ? defaultAttackForce(game.territories[id].units) : null); setHint(`Selected ${getTerritory(game.map, id).label}. ${mode === "trade" ? "Choose another friendly port." : mode === "expand" ? "Set your force, then choose a neighbouring region." : "Choose a neighbouring region."}`); return;
+      setSelected(id); setAttackUnits(mode === "expand" ? defaultAttackForce(game.territories[id].units) : null); setHint(`Selected ${getTerritory(game.map, id).label}. ${mode === "trade" ? "Choose another friendly port." : mode === "expand" ? "Set your force, then choose a neighboring province or linked island." : "Choose a neighboring region."}`); return;
     }
     if (mode === "expand") submit({ type: "expand", player: "human", from: selected, to: id, units: attackUnits ?? defaultAttackForce(game.territories[selected].units) });
     else if (mode === "supply") submit({ type: "supply", player: "human", from: selected, to: id });

@@ -4,12 +4,14 @@ import type { MapDefinition, PlayerId, TerritoryDefinition, TerritoryId } from "
 const MAP_WIDTH = 900;
 const MAP_HEIGHT = 600;
 const TERRITORY_COUNT = 32;
+const ISLAND_COUNT = 18;
 const MINIMUM_DISTANCE = 63;
 
 const coastline: Array<[number, number]> = [[105,360],[79,332],[93,299],[87,267],[121,238],[123,207],[155,194],[171,158],[207,151],[230,120],[267,133],[294,108],[332,122],[356,99],[398,116],[430,145],[471,139],[501,109],[535,114],[563,91],[601,105],[632,131],[672,127],[695,157],[731,165],[748,200],[786,214],[803,246],[783,275],[817,307],[795,341],[802,374],[770,393],[758,430],[726,444],[697,477],[654,469],[624,501],[579,490],[547,516],[500,500],[462,514],[426,489],[390,498],[357,473],[318,487],[279,465],[245,477],[211,449],[177,458],[149,424],[118,412],[128,382]];
 type Point = [number, number];
 
 const regionNames = ["Aster", "Bramble", "Cinder", "Dawnreach", "Ember", "Fallow", "Gale", "Hollow", "Ironwood", "Juniper", "Kestrel", "Larkspur", "Morrow", "Northwatch", "Oaken", "Palisade", "Quartz", "Rookery", "Sable", "Thorn", "Umber", "Vale", "Westmere", "Yarrow", "Zephyr", "Alder", "Bracken", "Crownfall", "Drift", "Ebon", "Flint", "Glimmer"];
+const islandNames = ["Skerry", "Haven", "Beacon", "Tide", "Shoal", "Cove", "Reef", "Marsh", "Gull", "Storm", "Coral", "Anchor", "Mist", "Pearl", "Drake", "Foam", "Ember", "North"];
 
 function random(seed: number): () => number {
   let value = seed >>> 0;
@@ -107,6 +109,40 @@ function placePoints(seed: number, coast: Point[]): Array<[number, number]> {
   return points;
 }
 
+function distanceToCoast(x: number, y: number, coast: Point[]): number {
+  let closest = Infinity;
+  for (let index = 0; index < coast.length; index += 1) {
+    const [ax, ay] = coast[index];
+    const [bx, by] = coast[(index + 1) % coast.length];
+    const lengthSquared = (bx - ax) ** 2 + (by - ay) ** 2;
+    const progress = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / lengthSquared));
+    closest = Math.min(closest, Math.hypot(x - ax - progress * (bx - ax), y - ay - progress * (by - ay)));
+  }
+  return closest;
+}
+
+function placeIslands(seed: number, coast: Point[]): Array<{ x: number; y: number; path: string }> {
+  const next = random(seed ^ 0x51a7d);
+  const islands: Array<{ x: number; y: number; radius: number; path: string }> = [];
+  for (let attempt = 0; islands.length < ISLAND_COUNT && attempt < 30_000; attempt += 1) {
+    const radius = 21 + next() * 7;
+    const x = 34 + next() * (MAP_WIDTH - 68);
+    const y = 34 + next() * (MAP_HEIGHT - 68);
+    if (isOnLand(x, y, coast) || x < radius + 7 || x > MAP_WIDTH - radius - 7 || y < radius + 7 || y > MAP_HEIGHT - radius - 7) continue;
+    if (distanceToCoast(x, y, coast) < radius + 13) continue;
+    if (islands.some((island) => Math.hypot(island.x - x, island.y - y) < island.radius + radius + 12)) continue;
+    const corners = 9;
+    const vertices: Point[] = Array.from({ length: corners }, (_, index) => {
+      const angle = (index / corners) * Math.PI * 2;
+      const reach = radius * (0.82 + next() * 0.25);
+      return [x + Math.cos(angle) * reach, y + Math.sin(angle) * reach];
+    });
+    islands.push({ x, y, radius, path: roughPath(vertices, 3) });
+  }
+  if (islands.length < ISLAND_COUNT) throw new Error("Could not generate enough islands.");
+  return islands;
+}
+
 function findCapitalIndex(points: Array<[number, number]>, player: PlayerId): number {
   return points.reduce((best, point, index) => player === "human" ? (point[0] < points[best][0] ? index : best) : (point[0] > points[best][0] ? index : best), 0);
 }
@@ -114,6 +150,7 @@ function findCapitalIndex(points: Array<[number, number]>, player: PlayerId): nu
 export function generateFrontierMap(seed = 27, presetId = "crownlands"): MapDefinition {
   const coast = coastlineFor(presetId);
   const points = placePoints(seed, coast);
+  const islands = placeIslands(seed, coast);
   const delaunay = Delaunay.from(points);
   const voronoi = delaunay.voronoi([45, 55, MAP_WIDTH - 45, MAP_HEIGHT - 55]);
   const humanCapital = findCapitalIndex(points, "human");
@@ -127,9 +164,32 @@ export function generateFrontierMap(seed = 27, presetId = "crownlands"): MapDefi
     // The edge key keeps both sides of a shared border exactly identical.
     path: roughPath(Array.from(voronoi.cellPolygon(index) ?? []) as Point[], 11),
     neighbours: Array.from(delaunay.neighbors(index)).map((neighbour) => `region-${neighbour + 1}`),
+    seaNeighbours: [],
     capitalFor: index === humanCapital ? "human" : index === botCapital ? "bot" : undefined,
   }));
-  return { id: `${presetId}-${seed}`, seed, landPath: roughPath(coast, 10), territories };
+  const islandTerritories: TerritoryDefinition[] = islands.map((island, index) => ({
+    id: `island-${index + 1}`,
+    label: islandNames[index] ?? `Isle ${index + 1}`,
+    x: island.x,
+    y: island.y,
+    path: island.path,
+    neighbours: [],
+    seaNeighbours: [],
+    island: true,
+  }));
+  for (const island of islandTerritories) {
+    const nearestMainland = [...territories].sort((first, second) => Math.hypot(first.x - island.x, first.y - island.y) - Math.hypot(second.x - island.x, second.y - island.y)).slice(0, 2);
+    for (const mainland of nearestMainland) {
+      island.seaNeighbours.push(mainland.id);
+      mainland.seaNeighbours.push(island.id);
+    }
+    const nextIsland = [...islandTerritories].filter((other) => other !== island).sort((first, second) => Math.hypot(first.x - island.x, first.y - island.y) - Math.hypot(second.x - island.x, second.y - island.y))[0];
+    if (nextIsland && Math.hypot(nextIsland.x - island.x, nextIsland.y - island.y) < 155) {
+      if (!island.seaNeighbours.includes(nextIsland.id)) island.seaNeighbours.push(nextIsland.id);
+      if (!nextIsland.seaNeighbours.includes(island.id)) nextIsland.seaNeighbours.push(island.id);
+    }
+  }
+  return { id: `${presetId}-${seed}`, seed, landPath: `${roughPath(coast, 10)} ${islands.map((island) => island.path).join(" ")}`, territories: [...territories, ...islandTerritories] };
 }
 
 export function getTerritory(map: MapDefinition, id: TerritoryId): TerritoryDefinition {

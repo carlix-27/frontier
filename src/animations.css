@@ -17,6 +17,15 @@
 .capture-wave.human { fill: #57aeca; }
 .capture-wave.bot { fill: #d87c7c; }
 .capture-border { fill: none; stroke: #fff7cc; stroke-width: 5; pointer-events: none; }
+.sea-attack-routes { pointer-events: none; stroke: #dff6ef; stroke-dasharray: 5 5; stroke-width: 2; }
+.island-name { font-size: 9px; }
+.island-units { font-size: 15px; }
+.invasion-ship { pointer-events: none; }
+.invasion-wake { fill: none; stroke: #e7f7f2; stroke-dasharray: 3 5; stroke-width: 1.5; }
+.invasion-ship rect { fill: #e9d5a1; stroke: #30433b; stroke-width: .8; }
+.invasion-hull { stroke: #f7fbff; stroke-width: 1; }
+.invasion-hull.human { fill: #22638b; }
+.invasion-hull.bot { fill: #963f4b; }
 
 .actions button { align-items: center; display: flex; justify-content: space-between; }
 .actions kbd { background: #0a1725; border: 1px solid #597694; border-radius: 3px; color: #dbe9f6; font-family: ui-monospace, monospace; font-size: 0.75rem; font-weight: 800; min-width: 1.5rem; padding: 0.15rem 0.3rem; text-align: center; }

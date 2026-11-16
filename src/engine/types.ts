@@ -11,6 +11,8 @@ export interface TerritoryDefinition {
   y: number;
   path: string;
   neighbours: TerritoryId[];
+  seaNeighbours: TerritoryId[];
+  island?: boolean;
   capitalFor?: PlayerId;
 }
 
@@ -38,6 +40,7 @@ export interface GameEvent {
     to: TerritoryId;
     player: PlayerId;
     units: number;
+    bySea?: boolean;
   };
   capture?: {
     territory: TerritoryId;
@@ -54,9 +57,18 @@ export interface GameState {
   territories: Record<TerritoryId, TerritoryState>;
   suppliedLinks: string[];
   tradeRoutes: TradeRoute[];
+  invasions: SeaInvasion[];
   tradeCredits: Record<PlayerId, number>;
   events: GameEvent[];
   winner: PlayerId | "draw" | null;
+}
+
+export interface SeaInvasion {
+  from: TerritoryId;
+  to: TerritoryId;
+  player: PlayerId;
+  units: number;
+  arrivalTick: number;
 }
 
 export interface TradeRoute {

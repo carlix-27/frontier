@@ -42,8 +42,8 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
     })}</g>
     <path d={game.map.landPath} className="land-bed" />
     <path d={game.map.landPath} className="land-outline" />
-    <g className="decorative-islands"><path d="M106,150 l13,-8 18,5 7,13 -16,10 -19,-4 Z" /><path d="M755,470 l12,-6 17,7 1,14 -18,7 -13,-8 Z" /><path d="M160,480 l10,-5 12,7 -2,12 -15,2 Z" /></g>
     <path className="river" d="M556,145 C535,200 570,238 531,284 C495,328 526,372 482,430" />
+    {selected && <g className="sea-attack-routes">{getTerritory(game.map, selected).seaNeighbours.map((id) => { const source = getTerritory(game.map, selected); const target = getTerritory(game.map, id); return <line key={id} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />; })}</g>}
     <g clipPath="url(#land-clip)">
       {game.map.territories.map((territory) => {
         const state = game.territories[territory.id];
@@ -65,10 +65,14 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
     })}</g>
     <g clipPath="url(#land-clip)" className="territory-label-layer">{game.map.territories.map((territory) => {
       const state = game.territories[territory.id];
-      return <g key={`label-${territory.id}`}><text x={territory.x} y={territory.y - 4} className="region-name">{territory.label}</text><text x={territory.x} y={territory.y + 16} className="region-units">{state.units}</text></g>;
+      return <g key={`label-${territory.id}`}><text x={territory.x} y={territory.y - 4} className={territory.island ? "region-name island-name" : "region-name"}>{territory.label}</text><text x={territory.x} y={territory.y + 16} className={territory.island ? "region-units island-units" : "region-units"}>{state.units}</text></g>;
     })}</g>
     {moving.map((event, index) => {
       const move = event.movement!; const from = getTerritory(game.map, move.from); const to = getTerritory(game.map, move.to);
+      if (move.bySea) {
+        const path = `M${from.x},${from.y} Q${(from.x + to.x) / 2},${(from.y + to.y) / 2 - 16} ${to.x},${to.y}`;
+        return <g key={`${event.tick}-${index}-${move.from}-${move.to}`} className="invasion-ship"><path d={path} className="invasion-wake"><animate attributeName="stroke-opacity" values="0;.8;0" dur={`${0.9 / speed}s`} fill="freeze" /></path><g><animateMotion path={path} dur={`${0.9 / speed}s`} fill="freeze" rotate="auto" /><path d="M-9,2 L9,2 L6,7 L-6,7 Z" className={`invasion-hull ${move.player}`} /><rect x="-5" y="-5" width="4" height="7" /><rect x="1" y="-5" width="4" height="7" /><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.82;1" dur={`${0.9 / speed}s`} fill="freeze" /></g></g>;
+      }
       return <g key={`${event.tick}-${index}-${move.from}-${move.to}`}><circle className={`troop ${move.player}`} r="6" cx={from.x} cy={from.y}><animate attributeName="cx" from={from.x} to={to.x} dur={`${0.8 / speed}s`} fill="freeze" /><animate attributeName="cy" from={from.y} to={to.y} dur={`${0.8 / speed}s`} fill="freeze" /></circle><text className="troop-count" x={from.x} y={from.y - 12}>{move.units}</text></g>;
     })}
   </svg>;

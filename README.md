@@ -15,18 +15,21 @@ Then open the local URL printed by Vite. Use the map to select territories and i
 
 ## Current prototype
 
-- One player versus one deterministic bot.
-- A deterministic, fictional continent generated from irregular Voronoi regions.
-- Expand, fortify, and supply commands.
+- One player versus one deterministic bot, or a local demonstration with two bots.
+- Five deterministic fictional maps with 32 mainland provinces and 18 conquerable islands each.
+- Expand, fortify, supply, and trade commands, plus province development.
+- Maritime invasions with visible ships and supply connections back to the capital.
+- Live match preview, adjustable game speed, and a fullscreen map with zoom and drag navigation.
 - Capital capture or control score win condition.
 - Easy, normal, and expert bot behaviours.
 - Pure TypeScript game rules and unit tests.
 
 ## Commands
 
-- **Expand:** select a friendly territory, then an adjacent neutral or enemy territory. Half the units attack.
+- **Expand:** select a friendly territory, choose the attack force, then select an adjacent province or one linked by a sea route. Maritime attacks travel by ship.
 - **Fortify:** select a friendly territory and spend units to increase its defence.
-- **Supply:** select two adjacent friendly territories to establish a route that increases production.
+- **Supply:** select two adjacent friendly land territories to establish a route that increases production. Owned islands receive production while connected to your capital through owned provinces and sea links.
+- **Trade:** connect two friendly territories to earn credits for buildings and population upgrades.
 
 ## Project direction
 
