@@ -54,11 +54,11 @@ export default function App() {
 
   useEffect(() => {
     const timer = window.setInterval(() => setGame((current) => {
-      if (screen !== "game" || paused || current.winner) return current;
+      if ((screen !== "game" && screen !== "home") || (screen === "game" && paused) || (screen === "home" && document.hidden) || current.winner) return current;
       let next = advanceGame(current);
-      const cadence = difficulty === "easy" ? 5 : difficulty === "normal" ? 3 : 2;
+      const cadence = screen === "home" ? 3 : difficulty === "easy" ? 5 : difficulty === "normal" ? 3 : 2;
       if (!next.winner && next.tick % cadence === 0) {
-        const commanders: PlayerId[] = demoMode ? ["human", "bot"] : ["bot"];
+        const commanders: PlayerId[] = screen === "home" || demoMode ? ["human", "bot"] : ["bot"];
         for (const player of commanders) {
           const command = chooseBotCommand(next, difficulty, player);
           if (command) { const result = applyCommand(next, command); if (result.ok) next = result.state; }
@@ -66,9 +66,15 @@ export default function App() {
         }
       }
       return next;
-    }), 1000 / speed);
+    }), screen === "home" ? 1000 : 1000 / speed);
     return () => window.clearInterval(timer);
   }, [demoMode, difficulty, paused, screen, speed]);
+
+  useEffect(() => {
+    if (screen !== "home" || !game.winner) return;
+    const timer = window.setTimeout(() => setGame(createInitialGame()), 3500);
+    return () => window.clearTimeout(timer);
+  }, [game.winner, screen]);
 
   useEffect(() => {
     const shortcuts: Record<string, ActionMode> = { "1": "expand", "2": "fortify", "3": "supply", "4": "trade" };
@@ -122,6 +128,16 @@ export default function App() {
     setHint(forceDemo ? "Blue and red commanders are fighting." : "Select a friendly region to begin. Right-click it to manage population.");
   }
 
+  function enterPreview() {
+    setDemoMode(true); setPaused(false); setSpeed(1); setSelected(null); setManagedTerritory(null); setContextMenu(null);
+    setHint("You joined the live local demo. Blue and red commanders are fighting.");
+    setScreen("game");
+  }
+
+  function returnHome() {
+    setGame(createInitialGame()); setScreen("home");
+  }
+
   const remaining = Math.max(0, game.maxTicks - game.tick);
   const selectedUnits = selected ? game.territories[selected].units : 0;
   const maxAttackUnits = Math.max(1, selectedUnits - 1);
@@ -142,7 +158,7 @@ export default function App() {
   ];
   const nextGuideStep = guideSteps.findIndex((step) => !step.done);
   if (screen !== "game") return <main className="app-shell lobby-shell"><p className="eyebrow">FRONTIER · LOCAL PROTOTYPE</p><h1>Frontier</h1><p className="subtitle">Create a continent. Command its future.</p>
-    {screen === "home" ? <section className="lobby-card"><h2>Choose your next match</h2><p>Play against bots on one of five fictional continents.</p><div className="lobby-actions"><button className="primary" onClick={() => setScreen("setup")}>Create match</button><button onClick={() => setScreen("lobby")}>Join local lobby</button></div><small>Online lobbies are planned; this prototype runs locally in your browser.</small></section> : screen === "lobby" ? <section className="lobby-card"><h2>Local lobby</h2><p>A practice table is ready with two bot commanders. Join to watch their match.</p><div className="lobby-actions"><button onClick={() => setScreen("home")}>Back</button><button className="primary" onClick={() => startMatch(true)}>Join practice match</button></div></section> : <section className="lobby-card"><h2>Create match</h2><p>Choose a map and rules before the clock starts.</p><div className="map-options">{MAP_PRESETS.map((preset) => <button key={preset.id} className={mapChoice === preset.id ? "map-option active" : "map-option"} onClick={() => setMapChoice(preset.id)}><strong>{preset.name}</strong><span>{preset.description}</span></button>)}</div><div className="match-options"><label>Duration<select value={duration} onChange={(event) => setDuration(Number(event.target.value))}><option value={180}>3 minutes</option><option value={300}>5 minutes</option><option value={600}>10 minutes</option></select></label><label>Bot difficulty<select value={difficulty} onChange={(event) => setDifficulty(event.target.value as BotDifficulty)}><option value="easy">Easy</option><option value="normal">Normal</option><option value="expert">Expert</option></select></label><label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => setDemoMode(event.target.checked)} />Blue auto-play (demo)</label></div><div className="lobby-actions"><button onClick={() => setScreen("home")}>Back</button><button className="primary" onClick={() => startMatch()}>Start match</button></div></section>}
+    {screen === "home" ? <><button type="button" className="live-preview" onClick={enterPreview} aria-label="Open the live local bot match"><span className="live-preview-map"><GameMap game={game} speed={1} paused={false} selected={null} onTerritoryClick={() => {}} /></span><span className="live-preview-info"><span className="live-preview-label"><i /> LIVE LOCAL MATCH</span><strong>{game.winner ? "Match finished" : "A frontier is taking shape"}</strong><span>Blue AI {getControlScore(game, "human")} · Red AI {getControlScore(game, "bot")}</span><span>{game.winner ? "Open the final map" : `Match time ${String(Math.floor(game.tick / 60)).padStart(2, "0")}:${String(game.tick % 60).padStart(2, "0")}`}</span><b>Watch this match →</b></span></button><section className="lobby-card"><h2>Choose your next match</h2><p>Play against bots on one of five fictional continents.</p><div className="lobby-actions"><button className="primary" onClick={() => setScreen("setup")}>Create match</button><button onClick={() => setScreen("lobby")}>Join local lobby</button></div><small>Online lobbies are planned; this prototype runs locally in your browser.</small></section></> : screen === "lobby" ? <section className="lobby-card"><h2>Local lobby</h2><p>A practice table is ready with two bot commanders. Join to watch their match.</p><div className="lobby-actions"><button onClick={returnHome}>Back</button><button className="primary" onClick={() => startMatch(true)}>Join practice match</button></div></section> : <section className="lobby-card"><h2>Create match</h2><p>Choose a map and rules before the clock starts.</p><div className="map-options">{MAP_PRESETS.map((preset) => <button key={preset.id} className={mapChoice === preset.id ? "map-option active" : "map-option"} onClick={() => setMapChoice(preset.id)}><strong>{preset.name}</strong><span>{preset.description}</span></button>)}</div><div className="match-options"><label>Duration<select value={duration} onChange={(event) => setDuration(Number(event.target.value))}><option value={180}>3 minutes</option><option value={300}>5 minutes</option><option value={600}>10 minutes</option></select></label><label>Bot difficulty<select value={difficulty} onChange={(event) => setDifficulty(event.target.value as BotDifficulty)}><option value="easy">Easy</option><option value="normal">Normal</option><option value="expert">Expert</option></select></label><label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => setDemoMode(event.target.checked)} />Blue auto-play (demo)</label></div><div className="lobby-actions"><button onClick={returnHome}>Back</button><button className="primary" onClick={() => startMatch()}>Start match</button></div></section>}
   </main>;
   return <main className="app-shell">
     <header>
