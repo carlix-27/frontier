@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { chooseBotCommand, type BotDifficulty } from "./bots/basicBot";
 import { GameMap } from "./components/GameMap";
+import { MapViewport } from "./components/MapViewport";
 import { advanceGame, applyCommand, BUILDING_COSTS, BUILDING_NAMES, createInitialGame, getControlScore, getPopulation, UPGRADE_NAMES, upgradeCost } from "./engine/game";
 import { getMapPreset, getTerritory, MAP_PRESETS } from "./engine/map";
 import type { BuildingType, GameCommand, PlayerId, PopulationUpgrade, TerritoryId } from "./engine/types";
@@ -40,6 +41,10 @@ export default function App() {
   const [speed, setSpeed] = useState<GameSpeed>(1);
   const [hint, setHint] = useState("The two commanders are securing their capitals.");
   const [showGuide, setShowGuide] = useState(true);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
+  const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
+  const [mapResetToken, setMapResetToken] = useState(0);
+  const mapPanelRef = useRef<HTMLDivElement>(null);
   const scores = useMemo(() => ({
     human: getControlScore(game, "human"),
     bot: getControlScore(game, "bot"),
@@ -75,6 +80,35 @@ export default function App() {
     const timer = window.setTimeout(() => setGame(createInitialGame()), 3500);
     return () => window.clearTimeout(timer);
   }, [game.winner, screen]);
+
+  useEffect(() => {
+    const syncFullscreen = () => {
+      const active = document.fullscreenElement === mapPanelRef.current;
+      if (active) { setMapFullscreen(true); setFallbackFullscreen(false); }
+      else if (!fallbackFullscreen) setMapFullscreen(false);
+    };
+    const exitFallback = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && fallbackFullscreen) { setFallbackFullscreen(false); setMapFullscreen(false); }
+    };
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    window.addEventListener("keydown", exitFallback);
+    return () => { document.removeEventListener("fullscreenchange", syncFullscreen); window.removeEventListener("keydown", exitFallback); };
+  }, [fallbackFullscreen]);
+
+  async function toggleMapFullscreen() {
+    const panel = mapPanelRef.current;
+    if (!panel) return;
+    if (mapFullscreen) {
+      if (document.fullscreenElement === panel) await document.exitFullscreen();
+      setFallbackFullscreen(false); setMapFullscreen(false);
+      return;
+    }
+    if (panel.requestFullscreen) {
+      try { await panel.requestFullscreen(); setMapFullscreen(true); return; }
+      catch { /* Use the in-page expanded view below. */ }
+    }
+    setFallbackFullscreen(true); setMapFullscreen(true);
+  }
 
   useEffect(() => {
     const shortcuts: Record<string, ActionMode> = { "1": "expand", "2": "fortify", "3": "supply", "4": "trade" };
@@ -166,10 +200,10 @@ export default function App() {
       <div className="scoreboard"><div><span>{demoMode ? "Blue AI" : "You"}</span><strong>{scores.human}</strong></div><div><span>Red AI</span><strong>{scores.bot}</strong></div><div><span>Population</span><strong>{scores.population.toLocaleString()}</strong></div><div><span>Time</span><strong>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</strong></div></div>
     </header>
     <section className="game-layout">
-      <div className="map-panel">
+      <div ref={mapPanelRef} className={`map-panel${fallbackFullscreen ? " map-expanded" : ""}`}>
         <div className="population-bar"><div><p className="eyebrow">POPULATION</p><strong>{scores.population.toLocaleString()}</strong><span>Unlimited citizens across your territories.</span></div><div className="trade-budget"><p className="eyebrow">TRADE CREDITS</p><strong>{scores.credits}</strong><span>Earn +2 per active route delivery.</span></div></div>
-        <div className="playback-bar"><span>GAME SPEED</span><div className="speed-options" role="group" aria-label="Game speed">{([1, 2, 4] as GameSpeed[]).map((option) => <button key={option} type="button" className={speed === option ? "active" : ""} aria-pressed={speed === option} onClick={() => setSpeed(option)}>×{option}</button>)}</div><button type="button" className="pause-button" onClick={() => setPaused((current) => !current)}>{paused ? "Resume" : "Pause"}</button></div>
-        <div className="map-stage"><GameMap game={game} speed={speed} paused={paused} selected={selected} onTerritoryClick={handleTerritory} onTerritoryContextMenu={(territory, x, y) => { if (game.territories[territory].owner === "human") setContextMenu({ territory, x, y }); else setHint("You can manage population only in a blue territory."); }} /><div className="map-command-indicator" role="status" aria-live="polite"><span>ACTIVE COMMAND</span><strong>{activeCommand}</strong>{activeKey && <kbd>{activeKey}</kbd>}</div><div className="map-players" aria-label="Players alive"><span>PLAYERS ALIVE</span><strong className={blueAlive ? "blue alive" : "blue"}>● {demoMode ? "Blue AI" : "You"} {blueAlive ? "" : "· out"}</strong><strong className={redAlive ? "red alive" : "red"}>● Red AI {redAlive ? "" : "· out"}</strong></div></div>
+        <div className="playback-bar"><span>GAME SPEED</span><div className="speed-options" role="group" aria-label="Game speed">{([1, 2, 4] as GameSpeed[]).map((option) => <button key={option} type="button" className={speed === option ? "active" : ""} aria-pressed={speed === option} onClick={() => setSpeed(option)}>×{option}</button>)}</div><small className="map-help">Wheel to zoom · Drag to move</small><button type="button" onClick={() => setMapResetToken((token) => token + 1)} aria-label="Reset map view">Reset view</button><button type="button" className="fullscreen-button" onClick={toggleMapFullscreen} aria-pressed={mapFullscreen}>{mapFullscreen ? "Exit full screen" : "Full screen"}</button><button type="button" className="pause-button" onClick={() => setPaused((current) => !current)}>{paused ? "Resume" : "Pause"}</button></div>
+        <div className="map-stage"><MapViewport game={game} speed={speed} paused={paused} selected={selected} resetToken={mapResetToken} onTerritoryClick={handleTerritory} onTerritoryContextMenu={(territory, x, y) => { if (game.territories[territory].owner === "human") setContextMenu({ territory, x, y }); else setHint("You can manage population only in a blue territory."); }} /><div className="map-command-indicator" role="status" aria-live="polite"><span>ACTIVE COMMAND</span><strong>{activeCommand}</strong>{activeKey && <kbd>{activeKey}</kbd>}</div><div className="map-players" aria-label="Players alive"><span>PLAYERS ALIVE</span><strong className={blueAlive ? "blue alive" : "blue"}>● {demoMode ? "Blue AI" : "You"} {blueAlive ? "" : "· out"}</strong><strong className={redAlive ? "red alive" : "red"}>● Red AI {redAlive ? "" : "· out"}</strong></div></div>
         {contextMenu && <div className="province-menu" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => manageTerritory(contextMenu.territory)}>Manage population · {getTerritory(game.map, contextMenu.territory).label}</button><button onClick={() => setContextMenu(null)}>Close</button></div>}
         {showGuide ? <section className="match-guide" aria-label="Optional match guide"><div className="guide-header"><div><span>FIELD GUIDE · OPTIONAL</span><strong>{game.winner ? "Match complete" : nextGuideStep < 0 ? "Explore your own strategy" : `Suggested step ${nextGuideStep + 1} of ${guideSteps.length}`}</strong></div><button onClick={() => setShowGuide(false)} aria-label="Hide guide">Hide ×</button></div><p role="status">{game.winner ? (game.winner === "human" ? "Blue controls the frontier." : game.winner === "bot" ? "Red controls the frontier." : "Draw. The frontier remains contested.") : hint}</p><ol>{guideSteps.map((step, index) => <li key={step.title} className={step.done ? "done" : index === nextGuideStep ? "current" : ""}><span>{step.done ? "✓" : index + 1}</span><div><strong>{step.title}</strong>{index === nextGuideStep && <small>{step.detail}</small>}</div></li>)}</ol></section> : <button className="guide-reopen" onClick={() => setShowGuide(true)}>Show field guide</button>}
       </div>

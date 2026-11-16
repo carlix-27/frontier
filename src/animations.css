@@ -29,10 +29,22 @@
 .population-bar span { color: #8da6c1; display: block; font-size: .72rem; font-weight: 700; margin-top: 2px; }
 .playback-bar { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
 .playback-bar > span { color: #a9c0d4; font-size: .65rem; font-weight: 800; letter-spacing: .1em; margin-right: 3px; }
+.map-help { color: #a9c0d4; font-size: .69rem; }
 .speed-options { display: flex; gap: 4px; }
 .playback-bar button { background: #14283b; border: 1px solid #3a5873; color: #f7fbff; cursor: pointer; font-size: .78rem; font-weight: 800; min-width: 38px; padding: 6px 9px; }
 .playback-bar button.active { background: #f7e279; border-color: #f7e279; color: #06111c; }
 .playback-bar .pause-button { margin-left: auto; min-width: 68px; }
+.playback-bar .fullscreen-button { min-width: 92px; }
+.map-viewport { aspect-ratio: 3 / 2; cursor: grab; overflow: hidden; touch-action: none; width: 100%; }
+.map-viewport.dragging, .map-viewport.dragging * { cursor: grabbing !important; }
+.map-viewport .territory { cursor: grab; }
+.map-viewport-content { height: 100%; transform-origin: 0 0; width: 100%; }
+.map-viewport .game-map { height: 100%; min-height: 0; width: 100%; }
+.map-panel:fullscreen, .map-panel.map-expanded { background: #091827; display: flex; flex-direction: column; height: 100vh; padding: 10px; width: 100vw; }
+.map-panel.map-expanded { left: 0; position: fixed; top: 0; z-index: 100; }
+.map-panel:fullscreen .map-stage, .map-panel.map-expanded .map-stage { flex: 1 1 auto; min-height: 0; }
+.map-panel:fullscreen .map-viewport, .map-panel.map-expanded .map-viewport { aspect-ratio: auto; height: 100%; }
+.map-panel:fullscreen .match-guide, .map-panel.map-expanded .match-guide { max-height: 125px; overflow: auto; }
 .controls .primary { grid-column: 1 / -1; }
 .trade-budget { border-left: 1px solid #2a435d; padding-left: 14px; }
 .construction-menu { border-bottom: 1px solid #2a435d; padding-bottom: 16px; }
