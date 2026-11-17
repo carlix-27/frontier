@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { getTerritory, linkId } from "../engine/map";
+import { getTerritory } from "../engine/map";
 import { getPlayerColor } from "../engine/players";
 import type { BuildingType, GameState, TerritoryId } from "../engine/types";
 
@@ -34,13 +34,13 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
   useEffect(() => { if (paused) svgRef.current?.pauseAnimations(); else svgRef.current?.unpauseAnimations(); }, [paused]);
   const moving = game.events.filter((event) => event.movement).slice(0, 3);
   const captures = game.events.filter((event) => event.capture).slice(0, 2);
-  const roads = game.map.territories.flatMap((territory) => territory.neighbours.filter((neighbor) => territory.id < neighbor && game.territories[territory.id].owner && game.territories[territory.id].owner === game.territories[neighbor].owner).map((neighbor) => {
-    const destination = getTerritory(game.map, neighbor);
-    const midpointX = (territory.x + destination.x) / 2;
-    const midpointY = (territory.y + destination.y) / 2 - 24;
-    const bend = ((territory.x + territory.y + destination.x) % 17) - 8;
-    return { id: linkId(territory.id, neighbor), path: `M${territory.x},${territory.y - 24} Q${midpointX + bend},${midpointY + bend} ${destination.x},${destination.y - 24}`, supplied: game.suppliedLinks.includes(linkId(territory.id, neighbor)) };
-  }));
+  const roads = game.roadLinks.map((id) => {
+    const [fromId, toId] = id.split(":");
+    const from = getTerritory(game.map, fromId);
+    const to = getTerritory(game.map, toId);
+    const bend = ((from.x + to.y) % 9) - 4;
+    return { id, path: `M${from.x},${from.y - 16} Q${(from.x + to.x) / 2 + bend},${(from.y + to.y) / 2 - 16} ${to.x},${to.y - 16}`, supplied: game.suppliedLinks.includes(id) };
+  });
   return <svg ref={svgRef} className="game-map" viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
     <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient></defs>
     <rect width="900" height="600" fill="url(#ocean)" />
@@ -61,7 +61,7 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
         </g>;
       })}
-      <g className="dirt-roads">{roads.map((road) => <g key={road.id} className={road.supplied ? "dirt-road supplied" : "dirt-road"}><path d={road.path} className="road-bed" pathLength="100" strokeDasharray="100" strokeDashoffset="100"><animate attributeName="stroke-dashoffset" from="100" to="0" dur={`${0.7 / speed}s`} fill="freeze" /></path><path d={road.path} className="road-surface" pathLength="100" strokeDasharray="100" strokeDashoffset="100"><animate attributeName="stroke-dashoffset" from="100" to="0" dur={`${0.7 / speed}s`} fill="freeze" /></path></g>)}</g>
+      <g className="dirt-roads">{roads.map((road) => <g key={road.id} className={road.supplied ? "dirt-road supplied" : "dirt-road"}><path d={road.path} className="road-bed" /><path d={road.path} className="road-surface" /></g>)}</g>
       <g className="city-layer">{game.map.territories.map((territory) => <CityScene key={`city-${territory.id}`} x={territory.x} y={territory.y} buildings={game.territories[territory.id].buildings} speed={speed} />)}</g>
     </g>
     <g clipPath="url(#land-clip)">{captures.map((event) => {

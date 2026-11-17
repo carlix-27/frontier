@@ -18,6 +18,11 @@ function withEvent(state: GameState, message: string, movement?: GameState["even
   return { ...state, events: [{ tick: state.tick, message, movement, capture }, ...state.events].slice(0, EVENT_LIMIT) };
 }
 
+function withRoad(state: GameState, from: TerritoryId, to: TerritoryId): GameState {
+  const road = linkId(from, to);
+  return state.roadLinks.includes(road) ? state : { ...state, roadLinks: [...state.roadLinks, road] };
+}
+
 function capitalId(state: GameState, player: PlayerId): TerritoryId {
   const capital = state.map.territories.find((territory) => territory.capitalFor === player);
   if (!capital) throw new Error(`Missing ${player} capital.`);
@@ -53,7 +58,7 @@ export function createInitialGame(maxTicks = 300, seed = 27, presetId = "crownla
   const map = generateFrontierMap(seed, presetId, botCount);
   const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0, buildings: territory.capitalFor ? ["housing"] : [], upgrades: {} }])) as Record<TerritoryId, TerritoryState>;
   const tradeCredits = Object.fromEntries(map.territories.filter((territory) => territory.capitalFor).map((territory) => [territory.capitalFor, 0])) as Record<PlayerId, number>;
-  return { tick: 0, maxTicks, map, territories, suppliedLinks: [], tradeRoutes: [], invasions: [], tradeCredits, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
+  return { tick: 0, maxTicks, map, territories, roadLinks: [], suppliedLinks: [], tradeRoutes: [], invasions: [], tradeCredits, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
 }
 
 export function applyCommand(state: GameState, command: GameCommand): CommandResult {
@@ -109,7 +114,7 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     if (state.suppliedLinks.includes(route)) return { ok: false, state, reason: "That supply route is already active." };
     if (source.units < 4) return { ok: false, state, reason: "Supply routes require 4 units." };
     source.units -= 3; target.units += 1;
-    return { ok: true, state: withEvent({ ...state, territories, suppliedLinks: [...state.suppliedLinks, route] }, `${command.player} opened a supply route to ${getTerritory(state.map, command.to).label}.`) };
+    return { ok: true, state: withEvent(withRoad({ ...state, territories, suppliedLinks: [...state.suppliedLinks, route] }, command.from, command.to), `${command.player} opened a supply route to ${getTerritory(state.map, command.to).label}.`) };
   }
   if (source.units < 2) return { ok: false, state, reason: "Keep at least one unit behind to defend the territory." };
   const attackers = command.units ?? Math.floor(source.units / 2);
@@ -131,7 +136,7 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
   if (attackPower > defence) {
     const previousOwner = target.owner; target.owner = command.player; target.units = Math.max(1, attackPower - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
     const message = previousOwner ? `${command.player} captured ${getTerritory(state.map, command.to).label}.` : `${command.player} claimed ${getTerritory(state.map, command.to).label}.`;
-    return { ok: true, state: withEvent({ ...state, territories }, message, movement, { territory: command.to, from: command.from, player: command.player, previousOwner }) };
+    return { ok: true, state: withEvent(withRoad({ ...state, territories }, command.from, command.to), message, movement, { territory: command.to, from: command.from, player: command.player, previousOwner }) };
   }
   target.units = Math.max(1, defence - attackPower);
   return { ok: true, state: withEvent({ ...state, territories }, `${command.player}'s attack was repelled.`, movement) };

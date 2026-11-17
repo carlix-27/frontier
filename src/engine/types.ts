@@ -56,6 +56,7 @@ export interface GameState {
   maxTicks: number;
   map: MapDefinition;
   territories: Record<TerritoryId, TerritoryState>;
+  roadLinks: string[];
   suppliedLinks: string[];
   tradeRoutes: TradeRoute[];
   invasions: SeaInvasion[];

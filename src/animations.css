@@ -20,9 +20,9 @@
 .sea-attack-routes { pointer-events: none; stroke: #dff6ef; stroke-dasharray: 5 5; stroke-width: 2; }
 .dirt-roads { pointer-events: none; }
 .dirt-road path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.dirt-road .road-bed { stroke: #5f4528; stroke-width: 8; }
-.dirt-road .road-surface { stroke: #d0a56c; stroke-width: 4.5; }
-.dirt-road.supplied .road-surface { stroke: #f1cd83; stroke-width: 5.5; }
+.dirt-road .road-bed { stroke: #6b5438; stroke-width: 3; opacity: .58; }
+.dirt-road .road-surface { stroke: #d6b989; stroke-width: 1.4; opacity: .72; }
+.dirt-road.supplied .road-surface { stroke: #e1c687; stroke-width: 1.8; opacity: .82; }
 .island-name { font-size: 9px; }
 .island-units { font-size: 15px; }
 .invasion-ship { pointer-events: none; }

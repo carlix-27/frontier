@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { chooseBotCommand } from "../bots/basicBot";
 import { advanceGame, applyCommand, createInitialGame } from "./game";
-import { MAP_PRESETS } from "./map";
+import { linkId, MAP_PRESETS } from "./map";
 import { getBotIds, getMatchPlayers, getPlayerColor, isPlayerAlive } from "./players";
 
 describe("Frontier engine", () => {
+  it("keeps a built road after its provinces change hands", () => {
+    const initial = createInitialGame();
+    const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
+    const target = capital.neighbours.find((id) => initial.territories[id].owner === null)!;
+    const captured = applyCommand(initial, { type: "expand", player: "human", from: capital.id, to: target, units: 5 });
+    expect(captured.ok).toBe(true);
+    if (!captured.ok) return;
+    const road = linkId(capital.id, target);
+    expect(captured.state.roadLinks).toEqual([road]);
+    const changedOwner = { ...captured.state, territories: { ...captured.state.territories, [target]: { ...captured.state.territories[target], owner: "bot" as const } } };
+    expect(advanceGame(changedOwner).roadLinks).toContain(road);
+  });
   it("creates up to eight distinct bot capitals with separate colors and credits", () => {
     const game = createInitialGame(300, 27, "crownlands", 8);
     const players = getMatchPlayers(game);
