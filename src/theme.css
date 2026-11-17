@@ -67,6 +67,30 @@ button:focus-visible, input:focus-visible, select:focus-visible, .photo-add:focu
 .lobby-actions .primary:hover, .controls .primary:hover { background: color-mix(in srgb, var(--success) 85%, #000000); border-color: var(--success); }
 .map-option.active { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .map-option span, .match-options label { color: var(--muted); }
+.setup-map-preview { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 8px; margin: 22px auto 0; max-width: 720px; overflow: hidden; }
+.setup-preview-heading { align-items: end; display: flex; gap: 16px; justify-content: space-between; padding: 16px 18px 13px; }
+.setup-preview-heading .eyebrow { margin-bottom: 4px; }
+.setup-preview-heading h3 { font-size: 1.1rem; margin: 0; }
+.setup-preview-heading p:last-child { color: var(--muted); font-size: .8rem; margin: 5px 0 0; }
+.setup-preview-stats { display: flex; flex-wrap: wrap; gap: 12px; }
+.setup-preview-stats span, .setup-preview-legend span { align-items: center; color: var(--muted); display: inline-flex; font-size: .75rem; gap: 5px; white-space: nowrap; }
+.setup-preview-svg { background: #174c6d; display: block; height: auto; width: 100%; }
+.preview-land { fill: #92aa7c; }
+.preview-province { stroke: #2c4b43; stroke-width: 1.3; }
+.preview-province.tone-0 { fill: #a9bd8b; }
+.preview-province.tone-1 { fill: #9ab583; }
+.preview-province.tone-2 { fill: #b5c793; }
+.preview-province.human { fill: #57aeca; }
+.preview-province.bot { fill: #d87c7c; }
+.preview-coast { fill: none; stroke: #e9ecc8; stroke-linejoin: round; stroke-width: 4; }
+.preview-capital circle { fill: #102338; stroke: #fff5c3; stroke-width: 2; }
+.preview-capital text { fill: white; font-size: 16px; font-weight: 900; }
+.preview-capital.human circle { fill: #226b93; }
+.preview-capital.bot circle { fill: #ad4c5a; }
+.setup-preview-legend { align-items: center; display: flex; flex-wrap: wrap; gap: 13px; padding: 10px 15px; }
+.setup-preview-legend span:first-child svg { color: #57aeca; }
+.setup-preview-legend span:nth-child(2) svg { color: #d87c7c; }
+.setup-preview-legend small { color: var(--muted); font-size: .7rem; margin-left: auto; }
 .match-header { align-items: end; margin-bottom: 20px; }
 .match-header h1 { font-size: clamp(2.1rem, 5vw, 3.5rem); line-height: 1; }
 .match-header .subtitle { color: var(--muted); margin-top: 6px; }
@@ -134,4 +158,4 @@ button:focus-visible, input:focus-visible, select:focus-visible, .photo-add:focu
 .result-tag.loss { background: #da363333; color: #f85149; }
 .result-tag.draw { background: #8b949e33; color: var(--muted); }
 @media (max-width: 850px) { .game-layout { grid-template-columns: 1fr; } .profile-grid { grid-template-columns: 1fr; } .profile-identity { grid-template-columns: 150px minmax(0,1fr); } .profile-avatar { grid-row: span 4; } }
-@media (max-width: 650px) { .app-shell { width: min(100% - 20px, 1280px); } .site-header { gap: 8px; padding: 7px; } .site-nav button { font-size: 0; gap: 0; } .site-nav button svg { width: 18px; } .site-nav button:first-child { font-size: .8rem; } .profile-trigger > span:last-child { display: none; } .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .profile-history li { grid-template-columns: 60px 1fr; } .profile-history li > span:not(.result-tag), .profile-history time { display: none; } .control-panel { display: flex; } }
+@media (max-width: 650px) { .app-shell { width: min(100% - 20px, 1280px); } .site-header { gap: 8px; padding: 7px; } .site-nav button { font-size: 0; gap: 0; } .site-nav button svg { width: 18px; } .site-nav button:first-child { font-size: .8rem; } .profile-trigger > span:last-child { display: none; } .setup-preview-heading { align-items: start; flex-direction: column; } .setup-preview-legend small { margin-left: 0; width: 100%; } .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .profile-history li { grid-template-columns: 60px 1fr; } .profile-history li > span:not(.result-tag), .profile-history time { display: none; } .control-panel { display: flex; } }
