@@ -132,9 +132,10 @@
 .map-command-indicator span { color: #a9c0d4; font-size: .58rem; font-weight: 800; grid-column: 1 / -1; letter-spacing: .1em; }
 .map-command-indicator strong { font-size: .82rem; text-transform: capitalize; }
 .map-command-indicator kbd { background: #4cc9f0; border-radius: 2px; color: #06111c; font-family: ui-monospace, monospace; font-size: .68rem; font-weight: 800; padding: 2px 5px; }
-.map-players { background: #091827ed; border: 1px solid #7198b2; color: #dce8f5; display: grid; gap: 4px; padding: 7px 10px; pointer-events: none; position: absolute; right: 14px; top: 14px; }
+.map-players { background: #091827ed; border: 1px solid #7198b2; color: #dce8f5; display: grid; gap: 4px; max-height: calc(100% - 28px); overflow: auto; padding: 7px 10px; pointer-events: none; position: absolute; right: 14px; top: 14px; }
 .map-players span { color: #a9c0d4; font-size: .58rem; font-weight: 800; letter-spacing: .1em; }
-.map-players strong { font-size: .72rem; opacity: .45; }
+.map-players strong { align-items: center; display: flex; gap: 5px; font-size: .72rem; opacity: .45; white-space: nowrap; }
+.map-players .player-swatch { border: 1px solid #27423d; border-radius: 50%; display: inline-block; flex: none; height: 9px; width: 9px; }
 .map-players .alive { opacity: 1; }
 .map-players .blue { color: #70d3f1; }
 .map-players .red { color: #f09a9a; }

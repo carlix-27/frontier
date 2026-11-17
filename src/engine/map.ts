@@ -1,5 +1,6 @@
 import { Delaunay } from "d3-delaunay";
 import type { MapDefinition, PlayerId, TerritoryDefinition, TerritoryId } from "./types";
+import { getBotIds } from "./players";
 
 const MAP_WIDTH = 900;
 const MAP_HEIGHT = 600;
@@ -143,18 +144,30 @@ function placeIslands(seed: number, coast: Point[]): Array<{ x: number; y: numbe
   return islands;
 }
 
-function findCapitalIndex(points: Array<[number, number]>, player: PlayerId): number {
-  return points.reduce((best, point, index) => player === "human" ? (point[0] < points[best][0] ? index : best) : (point[0] > points[best][0] ? index : best), 0);
+function chooseCapitals(points: Point[], botCount: number): Map<number, PlayerId> {
+  const human = points.reduce((best, point, index) => point[0] < points[best][0] ? index : best, 0);
+  const red = points.reduce((best, point, index) => point[0] > points[best][0] ? index : best, 0);
+  const capitals = new Map<number, PlayerId>([[human, "human"], [red, "bot"]]);
+  for (const player of getBotIds(botCount).slice(1)) {
+    const next = points.reduce((best, point, index) => {
+      if (capitals.has(index)) return best;
+      const spacing = Math.min(...[...capitals.keys()].map((capital) => Math.hypot(point[0] - points[capital][0], point[1] - points[capital][1])));
+      if (best < 0) return index;
+      const bestSpacing = Math.min(...[...capitals.keys()].map((capital) => Math.hypot(points[best][0] - points[capital][0], points[best][1] - points[capital][1])));
+      return spacing > bestSpacing ? index : best;
+    }, -1);
+    capitals.set(next, player);
+  }
+  return capitals;
 }
 
-export function generateFrontierMap(seed = 27, presetId = "crownlands"): MapDefinition {
+export function generateFrontierMap(seed = 27, presetId = "crownlands", botCount = 1): MapDefinition {
   const coast = coastlineFor(presetId);
   const points = placePoints(seed, coast);
   const islands = placeIslands(seed, coast);
   const delaunay = Delaunay.from(points);
   const voronoi = delaunay.voronoi([45, 55, MAP_WIDTH - 45, MAP_HEIGHT - 55]);
-  const humanCapital = findCapitalIndex(points, "human");
-  const botCapital = findCapitalIndex(points, "bot");
+  const capitals = chooseCapitals(points, botCount);
   const territories: TerritoryDefinition[] = points.map(([x, y], index) => ({
     id: `region-${index + 1}`,
     label: regionNames[index] ?? `Region ${index + 1}`,
@@ -165,7 +178,7 @@ export function generateFrontierMap(seed = 27, presetId = "crownlands"): MapDefi
     path: roughPath(Array.from(voronoi.cellPolygon(index) ?? []) as Point[], 11),
     neighbours: Array.from(delaunay.neighbors(index)).map((neighbour) => `region-${neighbour + 1}`),
     seaNeighbours: [],
-    capitalFor: index === humanCapital ? "human" : index === botCapital ? "bot" : undefined,
+    capitalFor: capitals.get(index),
   }));
   const islandTerritories: TerritoryDefinition[] = islands.map((island, index) => ({
     id: `island-${index + 1}`,

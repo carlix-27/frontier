@@ -89,7 +89,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, .photo-add:focu
 .preview-province.bot { fill: #d87c7c; }
 .preview-coast { fill: none; stroke: #e9ecc8; stroke-linejoin: round; stroke-width: 4; }
 .preview-capital circle { fill: #102338; stroke: #fff5c3; stroke-width: 2; }
-.preview-capital text { fill: white; font-size: 16px; font-weight: 900; }
+.preview-capital text { fill: #162c2d; font-size: 16px; font-weight: 900; }
 .preview-capital.human circle { fill: #226b93; }
 .preview-capital.bot circle { fill: #ad4c5a; }
 .setup-preview-legend { align-items: center; display: flex; flex-wrap: wrap; gap: 13px; padding: 10px 15px; }

@@ -1,4 +1,4 @@
-export type PlayerId = "human" | "bot";
+export type PlayerId = "human" | "bot" | `bot-${number}`;
 export type BuildingType = "housing" | "factory" | "railway";
 export type PopulationUpgrade = "housing" | "industry" | "militia";
 

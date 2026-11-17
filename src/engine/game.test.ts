@@ -2,8 +2,39 @@ import { describe, expect, it } from "vitest";
 import { chooseBotCommand } from "../bots/basicBot";
 import { advanceGame, applyCommand, createInitialGame } from "./game";
 import { MAP_PRESETS } from "./map";
+import { getBotIds, getMatchPlayers, getPlayerColor, isPlayerAlive } from "./players";
 
 describe("Frontier engine", () => {
+  it("creates up to eight distinct bot capitals with separate colors and credits", () => {
+    const game = createInitialGame(300, 27, "crownlands", 8);
+    const players = getMatchPlayers(game);
+    expect(players).toHaveLength(9);
+    expect(new Set(game.map.territories.filter((territory) => territory.capitalFor).map((territory) => territory.id)).size).toBe(9);
+    expect(new Set(players.map(getPlayerColor)).size).toBe(9);
+    expect(Object.keys(game.tradeCredits)).toHaveLength(9);
+    for (const player of getBotIds(8)) {
+      expect(isPlayerAlive(game, player)).toBe(true);
+      expect(chooseBotCommand(game, "normal", player)).not.toBeNull();
+    }
+  });
+  it("eliminates a bot when its capital falls and keeps the other bots playing", () => {
+    const game = createInitialGame(300, 27, "crownlands", 3);
+    const capital = game.map.territories.find((territory) => territory.capitalFor === "bot")!;
+    const territories = { ...game.territories, [capital.id]: { ...game.territories[capital.id], owner: "human" as const } };
+    const after = advanceGame({ ...game, territories });
+    expect(after.winner).toBeNull();
+    expect(isPlayerAlive(after, "bot")).toBe(false);
+    expect(chooseBotCommand(after, "normal", "bot")).toBeNull();
+    expect(applyCommand(after, { type: "fortify", player: "bot", territory: capital.id }).ok).toBe(false);
+  });
+  it("declares the sole surviving capital owner the winner", () => {
+    const game = createInitialGame(300, 27, "crownlands", 3);
+    const territories = { ...game.territories };
+    for (const capital of game.map.territories.filter((territory) => territory.capitalFor && territory.capitalFor !== "human")) {
+      territories[capital.id] = { ...territories[capital.id], owner: "human" };
+    }
+    expect(advanceGame({ ...game, territories }).winner).toBe("human");
+  });
   it("generates a deterministic fictional continent", () => {
     const first = createInitialGame(300, 77); const second = createInitialGame(300, 77);
     expect(first.map.territories).toEqual(second.map.territories);

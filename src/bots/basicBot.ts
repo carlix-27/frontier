@@ -1,10 +1,12 @@
 import { getTerritory, linkId } from "../engine/map";
 import { BUILDING_COSTS } from "../engine/game";
+import { isPlayerAlive } from "../engine/players";
 import type { BuildingType, GameCommand, GameState, PlayerId, TerritoryId } from "../engine/types";
 
 export type BotDifficulty = "easy" | "normal" | "expert";
 
 export function chooseBotCommand(state: GameState, difficulty: BotDifficulty, player: PlayerId = "bot"): GameCommand | null {
+  if (!isPlayerAlive(state, player)) return null;
   const owned = Object.entries(state.territories).filter(([, territory]) => territory.owner === player).map(([id]) => id);
   const attackMargin = difficulty === "easy" ? 3 : difficulty === "normal" ? 1 : 0;
   const supplyThreshold = difficulty === "easy" ? 10 : difficulty === "normal" ? 7 : 5;

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { getTerritory, linkId } from "../engine/map";
+import { getPlayerColor } from "../engine/players";
 import type { BuildingType, GameState, TerritoryId } from "../engine/types";
 
 interface Props { game: GameState; speed: 1 | 2 | 4; paused: boolean; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; onTerritoryContextMenu?: (id: TerritoryId, x: number, y: number) => void; }
@@ -55,7 +56,7 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
       {game.map.territories.map((territory) => {
         const state = game.territories[territory.id];
         return <g key={territory.id} onClick={() => onTerritoryClick(territory.id)} onContextMenu={(event) => { event.preventDefault(); onTerritoryContextMenu?.(territory.id, event.clientX, event.clientY); }} className="territory-group">
-          <path d={territory.path} className={`territory ${state.owner ?? "neutral"} ${selected === territory.id ? "selected" : ""}`} />
+          <path d={territory.path} className={`territory ${state.owner ?? "neutral"} ${selected === territory.id ? "selected" : ""}`} style={{ fill: getPlayerColor(state.owner) }} />
           {state.fortification > 0 && <circle cx={territory.x} cy={territory.y - 18} r="7" className="fortification" />}
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
         </g>;
@@ -65,7 +66,7 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
     </g>
     <g clipPath="url(#land-clip)">{captures.map((event) => {
       const capture = event.capture!; const target = getTerritory(game.map, capture.territory);
-      return <g key={`capture-wave-${event.tick}-${capture.territory}`}><path d={target.path} className={`capture-before ${capture.previousOwner ?? "neutral"}`}><animate attributeName="fill-opacity" values="1;1;0" keyTimes="0;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className={`capture-wave ${capture.player}`}><animate attributeName="fill-opacity" values="0;0.18;0.9;0" keyTimes="0;0.32;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className="capture-border"><animate attributeName="stroke-opacity" values="0;1;0" dur={`${1.05 / speed}s`} fill="freeze" /></path></g>;
+      return <g key={`capture-wave-${event.tick}-${capture.territory}`}><path d={target.path} className="capture-before" style={{ fill: getPlayerColor(capture.previousOwner) }}><animate attributeName="fill-opacity" values="1;1;0" keyTimes="0;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className="capture-wave" style={{ fill: getPlayerColor(capture.player) }}><animate attributeName="fill-opacity" values="0;0.18;0.9;0" keyTimes="0;0.32;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className="capture-border"><animate attributeName="stroke-opacity" values="0;1;0" dur={`${1.05 / speed}s`} fill="freeze" /></path></g>;
     })}</g>
     <g clipPath="url(#land-clip)" className="territory-label-layer">{game.map.territories.map((territory) => {
       const state = game.territories[territory.id];
@@ -75,9 +76,9 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
       const move = event.movement!; const from = getTerritory(game.map, move.from); const to = getTerritory(game.map, move.to);
       if (move.bySea) {
         const path = `M${from.x},${from.y} Q${(from.x + to.x) / 2},${(from.y + to.y) / 2 - 16} ${to.x},${to.y}`;
-        return <g key={`${event.tick}-${index}-${move.from}-${move.to}`} className="invasion-ship"><path d={path} className="invasion-wake"><animate attributeName="stroke-opacity" values="0;.8;0" dur={`${0.9 / speed}s`} fill="freeze" /></path><g><animateMotion path={path} dur={`${0.9 / speed}s`} fill="freeze" rotate="auto" /><path d="M-9,2 L9,2 L6,7 L-6,7 Z" className={`invasion-hull ${move.player}`} /><rect x="-5" y="-5" width="4" height="7" /><rect x="1" y="-5" width="4" height="7" /><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.82;1" dur={`${0.9 / speed}s`} fill="freeze" /></g></g>;
+        return <g key={`${event.tick}-${index}-${move.from}-${move.to}`} className="invasion-ship"><path d={path} className="invasion-wake"><animate attributeName="stroke-opacity" values="0;.8;0" dur={`${0.9 / speed}s`} fill="freeze" /></path><g><animateMotion path={path} dur={`${0.9 / speed}s`} fill="freeze" rotate="auto" /><path d="M-9,2 L9,2 L6,7 L-6,7 Z" className="invasion-hull" style={{ fill: getPlayerColor(move.player) }} /><rect x="-5" y="-5" width="4" height="7" /><rect x="1" y="-5" width="4" height="7" /><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.82;1" dur={`${0.9 / speed}s`} fill="freeze" /></g></g>;
       }
-      return <g key={`${event.tick}-${index}-${move.from}-${move.to}`}><circle className={`troop ${move.player}`} r="6" cx={from.x} cy={from.y}><animate attributeName="cx" from={from.x} to={to.x} dur={`${(move.byRoad ? 0.45 : 0.8) / speed}s`} fill="freeze" /><animate attributeName="cy" from={from.y} to={to.y} dur={`${(move.byRoad ? 0.45 : 0.8) / speed}s`} fill="freeze" /></circle><text className="troop-count" x={from.x} y={from.y - 12}>{move.units}</text></g>;
+      return <g key={`${event.tick}-${index}-${move.from}-${move.to}`}><circle className={`troop ${move.player}`} style={{ fill: getPlayerColor(move.player), stroke: "#27423d" }} r="6" cx={from.x} cy={from.y}><animate attributeName="cx" from={from.x} to={to.x} dur={`${(move.byRoad ? 0.45 : 0.8) / speed}s`} fill="freeze" /><animate attributeName="cy" from={from.y} to={to.y} dur={`${(move.byRoad ? 0.45 : 0.8) / speed}s`} fill="freeze" /></circle><text className="troop-count" x={from.x} y={from.y - 12}>{move.units}</text></g>;
     })}
   </svg>;
 }

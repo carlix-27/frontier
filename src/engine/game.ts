@@ -1,4 +1,5 @@
 import { generateFrontierMap, getTerritory, linkId } from "./map";
+import { getMatchPlayers, getPlayerName, isPlayerAlive } from "./players";
 import type { BuildingType, CommandResult, GameCommand, GameState, PlayerId, PopulationUpgrade, TerritoryId, TerritoryState } from "./types";
 
 const PRODUCTION_INTERVAL = 3;
@@ -24,6 +25,7 @@ function capitalId(state: GameState, player: PlayerId): TerritoryId {
 }
 
 function isConnectedToCapital(state: GameState, territoryId: TerritoryId, player: PlayerId): boolean {
+  if (!isPlayerAlive(state, player)) return false;
   const capital = capitalId(state, player);
   const visited = new Set<TerritoryId>([capital]);
   const queue = [capital];
@@ -47,14 +49,16 @@ export function getPopulation(state: GameState, player: PlayerId): number {
   return Object.values(state.territories).reduce((total, territory) => total + (territory.owner === player ? territory.population : 0), 0);
 }
 
-export function createInitialGame(maxTicks = 300, seed = 27, presetId = "crownlands"): GameState {
-  const map = generateFrontierMap(seed, presetId);
+export function createInitialGame(maxTicks = 300, seed = 27, presetId = "crownlands", botCount = 1): GameState {
+  const map = generateFrontierMap(seed, presetId, botCount);
   const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0, buildings: territory.capitalFor ? ["housing"] : [], upgrades: {} }])) as Record<TerritoryId, TerritoryState>;
-  return { tick: 0, maxTicks, map, territories, suppliedLinks: [], tradeRoutes: [], invasions: [], tradeCredits: { human: 0, bot: 0 }, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
+  const tradeCredits = Object.fromEntries(map.territories.filter((territory) => territory.capitalFor).map((territory) => [territory.capitalFor, 0])) as Record<PlayerId, number>;
+  return { tick: 0, maxTicks, map, territories, suppliedLinks: [], tradeRoutes: [], invasions: [], tradeCredits, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
 }
 
 export function applyCommand(state: GameState, command: GameCommand): CommandResult {
   if (state.winner) return { ok: false, state, reason: "The match is already over." };
+  if (!isPlayerAlive(state, command.player)) return { ok: false, state, reason: "Your capital has fallen. You can spectate the remaining players." };
   const territories = copyTerritories(state.territories);
   if (command.type === "upgrade") {
     const territory = territories[command.territory];
@@ -151,6 +155,7 @@ export function advanceGame(state: GameState): GameState {
   const arrivals = next.invasions.filter((invasion) => invasion.arrivalTick <= next.tick);
   next.invasions = next.invasions.filter((invasion) => invasion.arrivalTick > next.tick);
   for (const invasion of arrivals) {
+    if (!isPlayerAlive(next, invasion.player)) continue;
     const target = next.territories[invasion.to];
     if (target.owner === invasion.player) { target.units += invasion.units; next = withEvent(next, `${invasion.player} reinforced ${getTerritory(next.map, invasion.to).label} by sea.`); continue; }
     const defence = target.units + target.fortification * 2;
@@ -163,12 +168,13 @@ export function advanceGame(state: GameState): GameState {
       next = withEvent(next, `${invasion.player}'s landing at ${getTerritory(next.map, invasion.to).label} was repelled.`);
     }
   }
-  if (next.territories[capitalId(next, "human")].owner === "bot") return withEvent({ ...next, winner: "bot" }, "bot captured the enemy capital.");
-  if (next.territories[capitalId(next, "bot")].owner === "human") return withEvent({ ...next, winner: "human" }, "human captured the enemy capital.");
+  const activePlayers = getMatchPlayers(next).filter((player) => isPlayerAlive(next, player));
+  if (activePlayers.length === 0) return withEvent({ ...next, winner: "draw" }, "No capitals remain. The match is a draw.");
+  if (activePlayers.length === 1) return withEvent({ ...next, winner: activePlayers[0] }, `${getPlayerName(activePlayers[0])} controls the frontier.`);
   if (next.tick >= next.maxTicks) {
-    const humanScore = controlScore(next, "human"); const botScore = controlScore(next, "bot");
-    const winner = humanScore === botScore ? "draw" : humanScore > botScore ? "human" : "bot";
-    return withEvent({ ...next, winner }, winner === "draw" ? "Time expired. The match is a draw." : `Time expired. ${winner} controls the frontier.`);
+    const ranked = activePlayers.map((player) => ({ player, score: controlScore(next, player) })).sort((a, b) => b.score - a.score);
+    const winner: PlayerId | "draw" = ranked[0].score === ranked[1].score ? "draw" : ranked[0].player;
+    return withEvent({ ...next, winner }, winner === "draw" ? "Time expired. The match is a draw." : `Time expired. ${getPlayerName(winner)} controls the frontier.`);
   }
   return next;
 }
