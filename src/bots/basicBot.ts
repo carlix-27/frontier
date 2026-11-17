@@ -1,6 +1,7 @@
 import { getTerritory, linkId } from "../engine/map";
 import { BUILDING_COSTS } from "../engine/game";
 import { isPlayerAlive } from "../engine/players";
+import { areAllied } from "../engine/diplomacy";
 import type { BuildingType, GameCommand, GameState, PlayerId, TerritoryId } from "../engine/types";
 
 export type BotDifficulty = "easy" | "normal" | "expert";
@@ -12,7 +13,7 @@ export function chooseBotCommand(state: GameState, difficulty: BotDifficulty, pl
   const supplyThreshold = difficulty === "easy" ? 10 : difficulty === "normal" ? 7 : 5;
   const options = owned.flatMap((from) => { const territory = getTerritory(state.map, from); return [...territory.neighbours, ...territory.seaNeighbours].map((to) => ({ from, to, target: state.territories[to] })); });
   const winningAttack = options.filter(({ from, to, target }) => {
-    if (target.owner === player) return false;
+    if (target.owner === player || (target.owner && areAllied(state, player, target.owner))) return false;
     const origin = getTerritory(state.map, from);
     const roadBonus = !origin.seaNeighbours.includes(to) && origin.neighbours.some((neighbor) => state.territories[neighbor].owner === player) ? 1 : 0;
     return state.territories[from].units - 1 + roadBonus > target.units + target.fortification * 2 + attackMargin;
@@ -37,7 +38,7 @@ export function chooseBotCommand(state: GameState, difficulty: BotDifficulty, pl
   }
   const transfer = owned.filter((id) => (distance.get(id) ?? 0) > 0 && state.territories[id].units >= 8).sort((first, second) => state.territories[second].units - state.territories[first].units).map((from) => ({ from, to: getTerritory(state.map, from).neighbours.find((neighbor) => state.territories[neighbor].owner === player && (distance.get(neighbor) ?? Infinity) < (distance.get(from) ?? Infinity)) })).find(({ to }) => !!to);
   if (transfer?.to) return { type: "expand", player, from: transfer.from, to: transfer.to, units: Math.floor(state.territories[transfer.from].units / 2) };
-  const trade = owned.flatMap((from) => owned.filter((to) => to !== from).map((to) => ({ from, to }))).find(({ from, to }) => !state.tradeRoutes.some((route) => route.player === player && route.id === linkId(from, to)));
+  const trade = owned.flatMap((from) => owned.filter((to) => to !== from).map((to) => ({ from, to }))).find(({ from, to }) => !state.tradeRoutes.some((route) => route.player === player && route.recipient === player && route.id === linkId(from, to)));
   if (trade && state.tradeRoutes.filter((route) => route.player === player).length < Math.max(1, Math.floor(owned.length / 6))) return { type: "trade", player, from: trade.from, to: trade.to };
   const buildOrder: BuildingType[] = ["factory", "railway", "housing"];
   const construction = owned.flatMap((territory) => buildOrder.filter((building) => state.tradeCredits[player] >= BUILDING_COSTS[building] && !state.territories[territory].buildings.includes(building)).map((building) => ({ territory, building })))[0];

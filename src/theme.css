@@ -120,9 +120,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, .photo-add:focu
 .force-control, .skill-panel { background: var(--surface-raised); border-color: var(--border); border-radius: 6px; }
 .skill-tree { border-color: var(--accent); }
 .skill-step { background: var(--accent); color: #ffffff; }
-.province-menu { background: var(--surface); border-color: var(--border); border-radius: 6px; }
+.province-menu { background: var(--surface); background: color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter: blur(9px); border-color: var(--border); border-radius: 8px; }
+.province-menu-heading { border-color: var(--border); }
+.province-menu-heading small, .province-menu-action small { color: var(--muted); }
 .province-menu button { color: var(--text); }
-.province-menu button:hover { background: var(--button-hover); }
+.province-menu-action > svg { color: var(--accent); }
+.province-menu button:hover:not(:disabled) { background: var(--button-hover); }
+.province-menu button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .guide-reopen, .guide-header button { border-radius: 5px; }
 .profile-shell { max-width: 1080px; }
 .profile-page { padding-bottom: 40px; }

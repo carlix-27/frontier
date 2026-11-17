@@ -1,4 +1,5 @@
 import { generateFrontierMap, getTerritory, linkId } from "./map";
+import { allianceId, areAllied } from "./diplomacy";
 import { getMatchPlayers, getPlayerName, isPlayerAlive } from "./players";
 import type { BuildingType, CommandResult, GameCommand, GameState, PlayerId, PopulationUpgrade, TerritoryId, TerritoryState } from "./types";
 
@@ -58,12 +59,24 @@ export function createInitialGame(maxTicks = 300, seed = 27, presetId = "crownla
   const map = generateFrontierMap(seed, presetId, botCount);
   const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0, buildings: territory.capitalFor ? ["housing"] : [], upgrades: {} }])) as Record<TerritoryId, TerritoryState>;
   const tradeCredits = Object.fromEntries(map.territories.filter((territory) => territory.capitalFor).map((territory) => [territory.capitalFor, 0])) as Record<PlayerId, number>;
-  return { tick: 0, maxTicks, map, territories, roadLinks: [], suppliedLinks: [], tradeRoutes: [], invasions: [], tradeCredits, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
+  return { tick: 0, maxTicks, map, territories, roadLinks: [], suppliedLinks: [], alliances: [], tradeRoutes: [], invasions: [], tradeCredits, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
 }
 
 export function applyCommand(state: GameState, command: GameCommand): CommandResult {
   if (state.winner) return { ok: false, state, reason: "The match is already over." };
   if (!isPlayerAlive(state, command.player)) return { ok: false, state, reason: "Your capital has fallen. You can spectate the remaining players." };
+  if (command.type === "ally" || command.type === "endAlliance") {
+    if (command.with === command.player || !isPlayerAlive(state, command.with)) return { ok: false, state, reason: "Choose an active nation to negotiate with." };
+    const id = allianceId(command.player, command.with);
+    const allied = state.alliances.includes(id);
+    if (command.type === "ally") {
+      if (allied) return { ok: false, state, reason: "These nations are already allied." };
+      return { ok: true, state: withEvent({ ...state, alliances: [...state.alliances, id] }, `${getPlayerName(command.player)} and ${getPlayerName(command.with)} formed an alliance.`) };
+    }
+    if (!allied) return { ok: false, state, reason: "These nations are not allied." };
+    const tradeRoutes = state.tradeRoutes.filter((route) => allianceId(route.player, route.recipient) !== id);
+    return { ok: true, state: withEvent({ ...state, alliances: state.alliances.filter((alliance) => alliance !== id), tradeRoutes }, `${getPlayerName(command.player)} ended the alliance with ${getPlayerName(command.with)}.`) };
+  }
   const territories = copyTerritories(state.territories);
   if (command.type === "upgrade") {
     const territory = territories[command.territory];
@@ -97,10 +110,11 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
   if (command.type === "trade") {
     if (command.from === command.to) return { ok: false, state, reason: "Trade needs two different ports." };
     const source = territories[command.from]; const target = territories[command.to];
-    if (source.owner !== command.player || target.owner !== command.player) return { ok: false, state, reason: "Trade routes connect two of your territories." };
+    if (!source || !target || source.owner !== command.player || !target.owner) return { ok: false, state, reason: "Choose one of your ports and an occupied destination." };
+    if (target.owner !== command.player && (!isPlayerAlive(state, target.owner) || !areAllied(state, command.player, target.owner))) return { ok: false, state, reason: "Establish an alliance with that nation before trading." };
     const id = linkId(command.from, command.to);
-    if (state.tradeRoutes.some((route) => route.id === id && route.player === command.player)) return { ok: false, state, reason: "That trade route already exists." };
-    return { ok: true, state: withEvent({ ...state, tradeRoutes: [...state.tradeRoutes, { id, from: command.from, to: command.to, player: command.player }] }, `${command.player} opened a maritime trade route.`) };
+    if (state.tradeRoutes.some((route) => route.id === id && route.player === command.player && route.recipient === target.owner)) return { ok: false, state, reason: "That trade route already exists." };
+    return { ok: true, state: withEvent({ ...state, tradeRoutes: [...state.tradeRoutes, { id, from: command.from, to: command.to, player: command.player, recipient: target.owner }] }, `${getPlayerName(command.player)} opened a trade route to ${getTerritory(state.map, command.to).label}.`) };
   }
   const origin = getTerritory(state.map, command.from);
   const bySea = origin.seaNeighbours.includes(command.to);
@@ -116,6 +130,7 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     source.units -= 3; target.units += 1;
     return { ok: true, state: withEvent(withRoad({ ...state, territories, suppliedLinks: [...state.suppliedLinks, route] }, command.from, command.to), `${command.player} opened a supply route to ${getTerritory(state.map, command.to).label}.`) };
   }
+  if (target.owner && areAllied(state, command.player, target.owner)) return { ok: false, state, reason: "End the alliance before attacking that nation." };
   if (source.units < 2) return { ok: false, state, reason: "Keep at least one unit behind to defend the territory." };
   const attackers = command.units ?? Math.floor(source.units / 2);
   if (!Number.isInteger(attackers) || attackers < 1 || attackers >= source.units) return { ok: false, state, reason: "Choose a whole number of units and leave at least one behind." };
@@ -155,13 +170,25 @@ export function advanceGame(state: GameState): GameState {
     }
   }
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const route of next.tradeRoutes) {
-    if (next.territories[route.from].owner === route.player && next.territories[route.to].owner === route.player) { next.territories[route.to].population += 2; next.tradeCredits[route.player] += 2; }
+    const recipient = next.territories[route.to].owner;
+    if (next.territories[route.from].owner !== route.player || !isPlayerAlive(next, route.player) || recipient !== route.recipient) continue;
+    if (recipient === route.player) { next.territories[route.to].population += 2; next.tradeCredits[route.player] += 2; }
+    else if (areAllied(next, route.player, recipient) && isPlayerAlive(next, recipient)) {
+      next.territories[route.from].population += 1;
+      next.territories[route.to].population += 1;
+      next.tradeCredits[route.player] += 2;
+      next.tradeCredits[recipient] += 2;
+    }
   }
   const arrivals = next.invasions.filter((invasion) => invasion.arrivalTick <= next.tick);
   next.invasions = next.invasions.filter((invasion) => invasion.arrivalTick > next.tick);
   for (const invasion of arrivals) {
     if (!isPlayerAlive(next, invasion.player)) continue;
     const target = next.territories[invasion.to];
+    if (target.owner && areAllied(next, invasion.player, target.owner)) {
+      if (next.territories[invasion.from].owner === invasion.player) next.territories[invasion.from].units += invasion.units;
+      continue;
+    }
     if (target.owner === invasion.player) { target.units += invasion.units; next = withEvent(next, `${invasion.player} reinforced ${getTerritory(next.map, invasion.to).label} by sea.`); continue; }
     const defence = target.units + target.fortification * 2;
     if (invasion.units > defence) {

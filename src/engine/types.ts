@@ -58,6 +58,7 @@ export interface GameState {
   territories: Record<TerritoryId, TerritoryState>;
   roadLinks: string[];
   suppliedLinks: string[];
+  alliances: string[];
   tradeRoutes: TradeRoute[];
   invasions: SeaInvasion[];
   tradeCredits: Record<PlayerId, number>;
@@ -78,6 +79,7 @@ export interface TradeRoute {
   from: TerritoryId;
   to: TerritoryId;
   player: PlayerId;
+  recipient: PlayerId;
 }
 
 export interface ExpandCommand {
@@ -108,6 +110,10 @@ export interface TradeCommand {
   to: TerritoryId;
 }
 
+export type AllianceCommand =
+  | { type: "ally"; player: PlayerId; with: PlayerId }
+  | { type: "endAlliance"; player: PlayerId; with: PlayerId };
+
 export interface BuildCommand {
   type: "build";
   player: PlayerId;
@@ -121,7 +127,7 @@ export interface UpgradeCommand {
   upgrade: PopulationUpgrade;
 }
 
-export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand | BuildCommand | UpgradeCommand;
+export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand | AllianceCommand | BuildCommand | UpgradeCommand;
 
 export type CommandResult =
   | { ok: true; state: GameState }

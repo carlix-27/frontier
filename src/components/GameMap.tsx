@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { getTerritory } from "../engine/map";
-import { getPlayerColor } from "../engine/players";
+import { areAllied } from "../engine/diplomacy";
+import { getPlayerColor, isPlayerAlive } from "../engine/players";
 import type { BuildingType, GameState, TerritoryId } from "../engine/types";
 
 interface Props { game: GameState; speed: 1 | 2 | 4; paused: boolean; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; onTerritoryContextMenu?: (id: TerritoryId, x: number, y: number) => void; }
@@ -31,6 +32,7 @@ function seaRoute(from: { x: number; y: number }, to: { x: number; y: number }):
 
 export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTerritoryContextMenu }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const railMaskPrefix = useId().replace(/:/g, "");
   useEffect(() => { if (paused) svgRef.current?.pauseAnimations(); else svgRef.current?.unpauseAnimations(); }, [paused]);
   const moving = game.events.filter((event) => event.movement).slice(0, 3);
   const captures = game.events.filter((event) => event.capture).slice(0, 2);
@@ -51,12 +53,16 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
     if (connection) trainLinks.add(connection.id);
   }
   const trains = rails.filter((rail) => trainLinks.has(rail.id)).slice(0, 8);
-  return <svg ref={svgRef} className="game-map" viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
-    <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient></defs>
+  const visibleTradeRoutes = game.tradeRoutes.filter((route) => {
+    const recipient = game.territories[route.to].owner;
+    return game.territories[route.from].owner === route.player && isPlayerAlive(game, route.player) && recipient === route.recipient && (recipient === route.player || (isPlayerAlive(game, recipient) && areAllied(game, route.player, recipient)));
+  });
+  return <svg ref={svgRef} className={paused ? "game-map paused" : "game-map"} viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
+    <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient>{rails.map((rail) => <mask key={rail.id} id={`${railMaskPrefix}-${rail.id.replace(":", "-")}`} maskUnits="userSpaceOnUse" x="0" y="0" width="900" height="600"><path d={rail.path} className="rail-reveal" pathLength="100" style={{ animationDuration: `${4.8 / speed}s` }} /></mask>)}</defs>
     <rect width="900" height="600" fill="url(#ocean)" />
-    <g className="trade-routes">{game.tradeRoutes.map((route) => {
+    <g className="trade-routes">{visibleTradeRoutes.map((route) => {
       const from = getTerritory(game.map, route.from); const to = getTerritory(game.map, route.to); const sea = seaRoute(from, to);
-      return <g key={route.id}><path d={sea.path} className="trade-wake" /><g className={`trade-ship ${route.player}`}><animateMotion path={sea.roundTrip} dur={`${8 / speed}s`} repeatCount="indefinite" rotate="auto" /><path d="M-13,5 L12,5 L8,11 L-9,11 Z" className="ship-hull" /><g className="ship-cargo"><animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.42;0.5;0.92;1" dur={`${8 / speed}s`} repeatCount="indefinite" /><rect x="-7" y="-4" width="5" height="8" /><rect x="-1" y="-4" width="5" height="8" /><rect x="5" y="-2" width="4" height="6" /></g><path d="M-8,4 L-8,-10 L-3,-10 L-3,4 Z" className="ship-bridge" /></g><g className="trade-unload" transform={`translate(${to.x - 10} ${to.y - 8})`}><rect width="7" height="7" /><rect x="8" width="7" height="7" /><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4;0.46;0.54;0.6" dur={`${8 / speed}s`} repeatCount="indefinite" /></g></g>;
+      return <g key={`${route.id}-${route.player}-${route.recipient}`}><path d={sea.path} className="trade-wake" /><g className={`trade-ship ${route.player}`}><animateMotion path={sea.roundTrip} dur={`${8 / speed}s`} repeatCount="indefinite" rotate="auto" /><path d="M-13,5 L12,5 L8,11 L-9,11 Z" className="ship-hull" /><g className="ship-cargo"><animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.42;0.5;0.92;1" dur={`${8 / speed}s`} repeatCount="indefinite" /><rect x="-7" y="-4" width="5" height="8" /><rect x="-1" y="-4" width="5" height="8" /><rect x="5" y="-2" width="4" height="6" /></g><path d="M-8,4 L-8,-10 L-3,-10 L-3,4 Z" className="ship-bridge" /></g><g className="trade-unload" transform={`translate(${to.x - 10} ${to.y - 8})`}><rect width="7" height="7" /><rect x="8" width="7" height="7" /><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4;0.46;0.54;0.6" dur={`${8 / speed}s`} repeatCount="indefinite" /></g></g>;
     })}</g>
     <path d={game.map.landPath} className="land-bed" />
     <path d={game.map.landPath} className="land-outline" />
@@ -71,8 +77,8 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
         </g>;
       })}
-      <g className="rail-lines">{rails.map((rail) => <g key={rail.id} className={rail.supplied ? "rail-link supplied" : "rail-link"}><path d={rail.path} className="rail-bed" /><path d={rail.path} className="rail-ties" /><path d={rail.path} className="rail-metal" /></g>)}</g>
-      <g className="rail-traffic">{trains.map((train) => <g key={train.id} className="rail-train"><animateMotion path={train.roundTrip} dur={`${9 / speed}s`} repeatCount="indefinite" rotate="auto" /><rect className="train-body" x="-5" y="-3" width="10" height="6" rx="1" /><rect className="train-window" x="-3" y="-2" width="3" height="2" /><rect className="train-window" x="1" y="-2" width="2" height="2" /><circle className="train-wheel" cx="-3" cy="3" r="1" /><circle className="train-wheel" cx="3" cy="3" r="1" /></g>)}</g>
+      <g className="rail-lines">{rails.map((rail) => <g key={rail.id} className={rail.supplied ? "rail-link supplied" : "rail-link"} mask={`url(#${railMaskPrefix}-${rail.id.replace(":", "-")})`}><path d={rail.path} className="rail-bed" /><path d={rail.path} className="rail-ties" /><path d={rail.path} className="rail-metal" /></g>)}</g>
+      <g className="rail-traffic">{trains.map((train) => <g key={train.id} className="rail-train" style={{ animationDelay: `${4.8 / speed}s` }}><animateMotion path={train.roundTrip} dur={`${9 / speed}s`} repeatCount="indefinite" rotate="auto" /><rect className="train-body" x="-5" y="-3" width="10" height="6" rx="1" /><rect className="train-window" x="-3" y="-2" width="3" height="2" /><rect className="train-window" x="1" y="-2" width="2" height="2" /><circle className="train-wheel" cx="-3" cy="3" r="1" /><circle className="train-wheel" cx="3" cy="3" r="1" /></g>)}</g>
       <g className="city-layer">{game.map.territories.map((territory) => <CityScene key={`city-${territory.id}`} x={territory.x} y={territory.y} buildings={game.territories[territory.id].buildings} speed={speed} />)}</g>
     </g>
     <g clipPath="url(#land-clip)">{captures.map((event) => {

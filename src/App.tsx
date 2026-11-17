@@ -5,6 +5,7 @@ import { GameMap } from "./components/GameMap";
 import { MapViewport } from "./components/MapViewport";
 import { MapPreview } from "./components/MapPreview";
 import { ProfilePanel } from "./components/ProfilePanel";
+import { ProvinceMenu } from "./components/ProvinceMenu";
 import { SiteHeader } from "./components/SiteHeader";
 import { advanceGame, applyCommand, BUILDING_COSTS, BUILDING_NAMES, createInitialGame, getControlScore, getPopulation, UPGRADE_NAMES, upgradeCost } from "./engine/game";
 import { getMapPreset, getTerritory, MAP_PRESETS } from "./engine/map";
@@ -19,7 +20,7 @@ const descriptions: Record<ActionMode, string> = {
   expand: "Attack a neighbor or move units to an ally along a road. A connected road adds 1 attack power.",
   fortify: "Spend 2 units to increase a territory's defence.",
   supply: "Open a route between adjacent friendly territories for faster growth.",
-  trade: "Connect two friendly ports. Every delivery brings population and trade credits.",
+  trade: "Connect your ports or trade with an allied nation. Both countries earn credits on international routes.",
 };
 const commandIcons: Record<ActionMode, LucideIcon> = { expand: Swords, fortify: Shield, supply: ArrowRight, trade: Ship };
 
@@ -155,6 +156,15 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [screen]);
 
+  useEffect(() => {
+    if (!contextMenu) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setContextMenu(null); };
+    const closeOutside = (event: globalThis.PointerEvent) => { if (!(event.target instanceof Element) || !event.target.closest(".province-menu")) setContextMenu(null); };
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("pointerdown", closeOutside);
+    return () => { window.removeEventListener("keydown", closeOnEscape); window.removeEventListener("pointerdown", closeOutside); };
+  }, [contextMenu]);
+
   function submit(command: GameCommand) {
     const result = applyCommand(game, command);
     if (!result.ok) { setHint(result.reason); return false; }
@@ -176,7 +186,7 @@ export default function App() {
     if (mode === "fortify") { submit({ type: "fortify", player: "human", territory: id }); return; }
     if (!selected) {
       if (game.territories[id].owner !== "human") { setHint("Choose one of your own regions as the origin."); return; }
-      setSelected(id); setAttackUnits(mode === "expand" ? defaultAttackForce(game.territories[id].units) : null); setHint(`Selected ${getTerritory(game.map, id).label}. ${mode === "trade" ? "Choose another friendly port." : mode === "expand" ? "Set your force, then choose a neighboring province or linked island." : "Choose a neighboring region."}`); return;
+      setSelected(id); setAttackUnits(mode === "expand" ? defaultAttackForce(game.territories[id].units) : null); setHint(`Selected ${getTerritory(game.map, id).label}. ${mode === "trade" ? "Choose another friendly or allied port." : mode === "expand" ? "Set your force, then choose a neighboring province or linked island." : "Choose a neighboring region."}`); return;
     }
     if (mode === "expand") submit({ type: "expand", player: "human", from: selected, to: id, units: attackUnits ?? defaultAttackForce(game.territories[selected].units) });
     else if (mode === "supply") submit({ type: "supply", player: "human", from: selected, to: id });
@@ -188,11 +198,23 @@ export default function App() {
     setManagedTerritory(id); setContextMenu(null); setHint(`Managing population in ${getTerritory(game.map, id).label}.`);
   }
 
+  function openTerritoryMenu(territory: TerritoryId, x: number, y: number) {
+    if (!game.territories[territory].owner) { setHint("Claim this province before opening its menu."); return; }
+    setContextMenu({ territory, x: Math.max(8, Math.min(x, window.innerWidth - 290)), y: Math.max(8, Math.min(y, window.innerHeight - 215)) });
+  }
+
+  function tradeWithNation(target: TerritoryId) {
+    const destination = getTerritory(game.map, target);
+    const source = game.map.territories.filter((territory) => game.territories[territory.id].owner === "human").sort((first, second) => Math.hypot(first.x - destination.x, first.y - destination.y) - Math.hypot(second.x - destination.x, second.y - destination.y))[0];
+    if (!source) { setHint("You need a province before opening a trade route."); return; }
+    if (submit({ type: "trade", player: "human", from: source.id, to: target })) setContextMenu(null);
+  }
+
   function startMatch(forceDemo = demoMode) {
     const preset = getMapPreset(mapChoice);
     setMatchId((id) => id + 1); setTrackMatch(!forceDemo);
     setDemoMode(forceDemo); setGame(createInitialGame(duration, preset.seed, preset.id, botCount)); setSelected(null); setAttackUnits(null); setBuildingToPlace(null); setManagedTerritory(null); setContextMenu(null); setPaused(false); setScreen("game");
-    setHint(forceDemo ? `Blue and ${botCount} bot commanders are fighting.` : "Select a friendly region to begin. Right-click it to manage population.");
+    setHint(forceDemo ? `Blue and ${botCount} bot commanders are fighting. Right-click another nation for diplomacy.` : "Select a friendly region to begin. Right-click your land for population or another nation for diplomacy.");
   }
 
   function enterPreview() {
@@ -217,7 +239,7 @@ export default function App() {
   const blueAlive = isPlayerAlive(game, "human");
   const guideSteps = [
     { title: "Claim a neighboring province", detail: "Use Expand (1), choose a blue origin, set your force, then choose a neighbor.", done: blueRegions > 1 },
-    { title: "Open a trade route", detail: "Use Trade (4) between two blue provinces to earn credits.", done: game.tradeRoutes.some((route) => route.player === "human") },
+    { title: "Open a trade route", detail: "Trade between your provinces, or right-click another nation to ally and trade.", done: game.tradeRoutes.some((route) => route.player === "human") },
     { title: "Develop a province", detail: "Spend trade credits on housing, a factory, or a railway.", done: Object.values(game.territories).some((territory) => territory.owner === "human" && territory.buildings.some((building) => building !== "housing")) },
     { title: "Manage population", detail: "Right-click a blue province and choose Manage population for its skill tree.", done: Object.values(game.territories).some((territory) => territory.owner === "human" && Object.values(territory.upgrades).some((level) => level > 0)) },
   ];
@@ -236,8 +258,8 @@ export default function App() {
       <div ref={mapPanelRef} className={`map-panel${fallbackFullscreen ? " map-expanded" : ""}`}>
         <div className="population-bar"><div><p className="eyebrow">POPULATION</p><strong>{scores.population.toLocaleString()}</strong><span>Unlimited citizens across your territories.</span></div><div className="trade-budget"><p className="eyebrow">TRADE CREDITS</p><strong>{scores.credits}</strong><span>Earn +2 per active route delivery.</span></div></div>
         <div className="playback-bar"><span>GAME SPEED</span><div className="speed-options" role="group" aria-label="Game speed">{([1, 2, 4] as GameSpeed[]).map((option) => <button key={option} type="button" className={speed === option ? "active" : ""} aria-pressed={speed === option} onClick={() => setSpeed(option)}>×{option}</button>)}</div><small className="map-help">Wheel to zoom · Drag to move</small><button type="button" onClick={() => setMapResetToken((token) => token + 1)} aria-label="Reset map view">Reset view</button><button type="button" className="fullscreen-button" onClick={toggleMapFullscreen} aria-pressed={mapFullscreen}>{mapFullscreen ? "Exit full screen" : "Full screen"}</button><button type="button" className="pause-button" onClick={() => setPaused((current) => !current)}>{paused ? "Resume" : "Pause"}</button></div>
-        <div className="map-stage"><MapViewport game={game} speed={speed} paused={paused} selected={selected} resetToken={mapResetToken} onTerritoryClick={handleTerritory} onTerritoryContextMenu={(territory, x, y) => { if (game.territories[territory].owner === "human") setContextMenu({ territory, x, y }); else setHint("You can manage population only in a blue territory."); }} /><div className="map-command-indicator" role="status" aria-live="polite"><span>ACTIVE COMMAND</span><strong>{activeCommand}</strong>{activeKey && <kbd>{activeKey}</kbd>}</div><div className="map-players" aria-label="Players alive"><span>PLAYERS ALIVE</span>{players.map((player) => { const alive = isPlayerAlive(game, player); return <strong key={player} className={alive ? "alive" : ""}><i className="player-swatch" style={{ backgroundColor: getPlayerColor(player) }} />{player === "human" ? demoMode ? "Blue AI" : "You" : `${getPlayerName(player)} AI`}{alive ? "" : " · out"}</strong>; })}</div></div>
-        {contextMenu && <div className="province-menu" style={{ left: contextMenu.x, top: contextMenu.y }}><button onClick={() => manageTerritory(contextMenu.territory)}>Manage population · {getTerritory(game.map, contextMenu.territory).label}</button><button onClick={() => setContextMenu(null)}>Close</button></div>}
+        <div className="map-stage"><MapViewport game={game} speed={speed} paused={paused} selected={selected} resetToken={mapResetToken} onTerritoryClick={handleTerritory} onTerritoryContextMenu={openTerritoryMenu} /><div className="map-command-indicator" role="status" aria-live="polite"><span>ACTIVE COMMAND</span><strong>{activeCommand}</strong>{activeKey && <kbd>{activeKey}</kbd>}</div><div className="map-players" aria-label="Players alive"><span>PLAYERS ALIVE</span>{players.map((player) => { const alive = isPlayerAlive(game, player); return <strong key={player} className={alive ? "alive" : ""}><i className="player-swatch" style={{ backgroundColor: getPlayerColor(player) }} />{player === "human" ? demoMode ? "Blue AI" : "You" : `${getPlayerName(player)} AI`}{alive ? "" : " · out"}</strong>; })}</div></div>
+        {contextMenu && <ProvinceMenu game={game} territoryId={contextMenu.territory} x={contextMenu.x} y={contextMenu.y} onManage={() => manageTerritory(contextMenu.territory)} onAlly={() => { const owner = game.territories[contextMenu.territory].owner; if (owner) submit({ type: "ally", player: "human", with: owner }); }} onEndAlliance={() => { const owner = game.territories[contextMenu.territory].owner; if (owner && submit({ type: "endAlliance", player: "human", with: owner })) setContextMenu(null); }} onTrade={() => tradeWithNation(contextMenu.territory)} onClose={() => setContextMenu(null)} />}
         {showGuide ? <section className="match-guide" aria-label="Optional match guide"><div className="guide-header"><div><span>FIELD GUIDE · OPTIONAL</span><strong>{game.winner ? "Match complete" : nextGuideStep < 0 ? "Explore your own strategy" : `Suggested step ${nextGuideStep + 1} of ${guideSteps.length}`}</strong></div><button onClick={() => setShowGuide(false)} aria-label="Hide guide">Hide ×</button></div><p role="status">{game.winner ? (game.winner === "draw" ? "Draw. The frontier remains contested." : `${getPlayerName(game.winner)} controls the frontier.`) : !blueAlive && !demoMode ? "Your capital fell. You can watch the remaining bots." : hint}</p><ol>{guideSteps.map((step, index) => <li key={step.title} className={step.done ? "done" : index === nextGuideStep ? "current" : ""}><span>{step.done ? "✓" : index + 1}</span><div><strong>{step.title}</strong>{index === nextGuideStep && <small>{step.detail}</small>}</div></li>)}</ol></section> : <button className="guide-reopen" onClick={() => setShowGuide(true)}>Show field guide</button>}
       </div>
       <aside className="control-panel">

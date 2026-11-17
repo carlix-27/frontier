@@ -19,6 +19,11 @@
 .capture-border { fill: none; stroke: #fff7cc; stroke-width: 5; pointer-events: none; }
 .sea-attack-routes { pointer-events: none; stroke: #dff6ef; stroke-dasharray: 5 5; stroke-width: 2; }
 .rail-lines, .rail-traffic { pointer-events: none; }
+.rail-reveal { fill: none; stroke: #fff; stroke-width: 9; stroke-dasharray: 100; stroke-dashoffset: 100; animation: rail-assemble 4.8s steps(18, end) forwards; }
+.rail-train { opacity: 0; animation: rail-train-ready 0s forwards; }
+.game-map.paused .rail-reveal, .game-map.paused .rail-train { animation-play-state: paused; }
+@keyframes rail-assemble { to { stroke-dashoffset: 0; } }
+@keyframes rail-train-ready { to { opacity: 1; } }
 .rail-link path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .rail-link .rail-bed { stroke: #5b554a; stroke-width: 2.7; opacity: .5; }
 .rail-link .rail-ties { stroke: #504b43; stroke-dasharray: 1 5; stroke-linecap: butt; stroke-width: 4.6; opacity: .32; }
@@ -128,9 +133,18 @@
 .skill-node strong { font-size: .72rem; }
 .skill-node button { font-size: .7rem; padding: 5px; }
 .skill-node button:disabled { cursor: not-allowed; opacity: .45; }
-.province-menu { background: #091827; border: 1px solid #71b9da; box-shadow: 0 12px 30px #06111ccc; display: grid; max-width: min(240px, 90vw); padding: 5px; position: fixed; z-index: 10; }
-.province-menu button { background: transparent; border: 0; color: #f7fbff; cursor: pointer; padding: 8px 10px; text-align: left; }
-.province-menu button:hover { background: #173d62; }
+.province-menu { border: 1px solid; box-shadow: 0 12px 30px #06111c66; display: grid; gap: 3px; padding: 8px; position: fixed; width: min(282px, calc(100vw - 16px)); z-index: 10; }
+.province-menu-heading { align-items: center; border-bottom: 1px solid; display: flex; gap: 9px; padding: 5px 5px 9px; }
+.province-menu-heading > div { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.province-menu-heading strong { font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.province-menu-heading small, .province-menu-action small { font-size: .68rem; line-height: 1.3; }
+.province-menu button { background: transparent; border: 0; cursor: pointer; text-align: left; }
+.province-menu .province-menu-dismiss { align-items: center; display: flex; justify-content: center; padding: 5px; }
+.province-menu-action { align-items: center; border-radius: 5px; display: flex; gap: 11px; padding: 10px 8px; width: 100%; }
+.province-menu-action > svg { flex: none; }
+.province-menu-action span { display: grid; gap: 2px; }
+.province-menu-action strong { font-size: .78rem; }
+.province-menu button:disabled { cursor: not-allowed; opacity: .48; }
 .map-stage { position: relative; }
 .map-command-indicator { align-items: center; background: #091827e8; border: 1px solid #7198b2; box-shadow: 0 4px 14px #06111c55; color: #f7fbff; display: grid; gap: 1px 10px; grid-template-columns: auto auto; left: 14px; max-width: calc(100% - 28px); padding: 7px 10px; pointer-events: none; position: absolute; top: 14px; }
 .map-command-indicator span { color: #a9c0d4; font-size: .58rem; font-weight: 800; grid-column: 1 / -1; letter-spacing: .1em; }

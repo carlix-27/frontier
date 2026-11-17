@@ -2,9 +2,67 @@ import { describe, expect, it } from "vitest";
 import { chooseBotCommand } from "../bots/basicBot";
 import { advanceGame, applyCommand, createInitialGame } from "./game";
 import { linkId, MAP_PRESETS } from "./map";
+import { areAllied } from "./diplomacy";
 import { getBotIds, getMatchPlayers, getPlayerColor, isPlayerAlive } from "./players";
 
 describe("Frontier engine", () => {
+  it("requires an alliance for international trade and rewards both nations", () => {
+    const initial = createInitialGame();
+    const human = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
+    const bot = initial.map.territories.find((territory) => territory.capitalFor === "bot")!;
+    const route = { type: "trade" as const, player: "human" as const, from: human.id, to: bot.id };
+    expect(applyCommand(initial, route).ok).toBe(false);
+    const pact = applyCommand(initial, { type: "ally", player: "human", with: "bot" });
+    expect(pact.ok).toBe(true);
+    if (!pact.ok) return;
+    expect(areAllied(pact.state, "human", "bot")).toBe(true);
+    const trade = applyCommand(pact.state, route);
+    expect(trade.ok).toBe(true);
+    if (!trade.ok) return;
+    const delivered = advanceGame(advanceGame(advanceGame(trade.state)));
+    expect(delivered.tradeCredits.human).toBe(2);
+    expect(delivered.tradeCredits.bot).toBe(2);
+    expect(delivered.territories[human.id].population).toBeGreaterThan(trade.state.territories[human.id].population);
+    expect(delivered.territories[bot.id].population).toBeGreaterThan(trade.state.territories[bot.id].population);
+    const ended = applyCommand(delivered, { type: "endAlliance", player: "human", with: "bot" });
+    expect(ended.ok).toBe(true);
+    if (!ended.ok) return;
+    expect(ended.state.tradeRoutes).toHaveLength(0);
+    expect(areAllied(ended.state, "human", "bot")).toBe(false);
+    expect(applyCommand(ended.state, route).ok).toBe(false);
+  });
+  it("does not redirect an existing trade route to a new occupier", () => {
+    const initial = createInitialGame(300, 27, "crownlands", 2);
+    const human = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
+    const red = initial.map.territories.find((territory) => territory.capitalFor === "bot")!;
+    const pact = applyCommand(initial, { type: "ally", player: "human", with: "bot" });
+    expect(pact.ok).toBe(true);
+    if (!pact.ok) return;
+    const trade = applyCommand(pact.state, { type: "trade", player: "human", from: human.id, to: red.id });
+    expect(trade.ok).toBe(true);
+    if (!trade.ok) return;
+    const newPact = applyCommand(trade.state, { type: "ally", player: "human", with: "bot-2" });
+    expect(newPact.ok).toBe(true);
+    if (!newPact.ok) return;
+    const occupied = { ...newPact.state, territories: { ...newPact.state.territories, [red.id]: { ...newPact.state.territories[red.id], owner: "bot-2" as const } } };
+    const after = advanceGame(advanceGame(advanceGame(occupied)));
+    expect(after.tradeCredits.human).toBe(0);
+    expect(after.tradeCredits["bot-2"]).toBe(0);
+  });
+  it("prevents attacks on allied provinces until the alliance ends", () => {
+    const initial = createInitialGame();
+    const human = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
+    const neighbor = human.neighbours.find((id) => initial.territories[id].owner === null)!;
+    const state = { ...initial, territories: { ...initial.territories, [neighbor]: { ...initial.territories[neighbor], owner: "bot" as const } } };
+    const pact = applyCommand(state, { type: "ally", player: "human", with: "bot" });
+    expect(pact.ok).toBe(true);
+    if (!pact.ok) return;
+    expect(applyCommand(pact.state, { type: "expand", player: "human", from: human.id, to: neighbor, units: 5 }).ok).toBe(false);
+    const ended = applyCommand(pact.state, { type: "endAlliance", player: "human", with: "bot" });
+    expect(ended.ok).toBe(true);
+    if (!ended.ok) return;
+    expect(applyCommand(ended.state, { type: "expand", player: "human", from: human.id, to: neighbor, units: 5 }).ok).toBe(true);
+  });
   it("keeps a built road after its provinces change hands", () => {
     const initial = createInitialGame();
     const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
