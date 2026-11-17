@@ -20,6 +20,7 @@ Then open the local URL printed by Vite. Use the map to select territories and i
 - Expand, fortify, supply, and trade commands, plus province development.
 - Maritime invasions with visible ships and supply connections back to the capital.
 - Live match preview, adjustable game speed, and a fullscreen map with zoom and drag navigation.
+- GitHub-inspired interface with Lucide icons, persistent light/dark themes, and a local player profile with photos and recent match results.
 - Capital capture or control score win condition.
 - Easy, normal, and expert bot behaviours.
 - Pure TypeScript game rules and unit tests.
@@ -40,6 +41,8 @@ Then open the local URL printed by Vite. Use the map to select territories and i
 ## Technology
 
 The MVP uses Vite, React, TypeScript, SVG, `d3-delaunay`, and Vitest. Game rules live independently from reusable browser components so the same engine can later run on an authoritative multiplayer server.
+
+Profile photos and match history are stored in the current browser only. Photos are resized before saving; there is no account or cloud sync yet.
 
 ## License
 

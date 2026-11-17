@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowRight, Factory, House, Shield, Ship, Swords, TrainFront, type LucideIcon } from "lucide-react";
 import { chooseBotCommand, type BotDifficulty } from "./bots/basicBot";
 import { GameMap } from "./components/GameMap";
 import { MapViewport } from "./components/MapViewport";
+import { ProfilePanel } from "./components/ProfilePanel";
+import { SiteHeader } from "./components/SiteHeader";
 import { advanceGame, applyCommand, BUILDING_COSTS, BUILDING_NAMES, createInitialGame, getControlScore, getPopulation, UPGRADE_NAMES, upgradeCost } from "./engine/game";
 import { getMapPreset, getTerritory, MAP_PRESETS } from "./engine/map";
 import type { BuildingType, GameCommand, PlayerId, PopulationUpgrade, TerritoryId } from "./engine/types";
+import { loadProfile, saveProfile } from "./profile";
 
 type ActionMode = "expand" | "fortify" | "supply" | "trade";
 type GameSpeed = 1 | 2 | 4;
@@ -15,18 +19,25 @@ const descriptions: Record<ActionMode, string> = {
   supply: "Open a route between adjacent friendly territories for faster growth.",
   trade: "Connect two friendly ports. Every delivery brings population and trade credits.",
 };
+const commandIcons: Record<ActionMode, LucideIcon> = { expand: Swords, fortify: Shield, supply: ArrowRight, trade: Ship };
 
-const buildingCards: Array<{ building: BuildingType; icon: string; description: string }> = [
-  { building: "housing", icon: "⌂", description: "+2 population every production cycle." },
-  { building: "factory", icon: "▦", description: "+1 unit every production cycle." },
-  { building: "railway", icon: "▰", description: "+1 population and a moving train." },
+const buildingCards: Array<{ building: BuildingType; icon: ReactNode; description: string }> = [
+  { building: "housing", icon: <House size={20} />, description: "+2 population every production cycle." },
+  { building: "factory", icon: <Factory size={20} />, description: "+1 unit every production cycle." },
+  { building: "railway", icon: <TrainFront size={20} />, description: "+1 population and a moving train." },
 ];
 
 function defaultAttackForce(units: number): number { return Math.max(1, Math.min(3, units - 1)); }
 
 export default function App() {
   const [game, setGame] = useState(() => createInitialGame());
-  const [screen, setScreen] = useState<"home" | "setup" | "lobby" | "game">("home");
+  const [screen, setScreen] = useState<"home" | "setup" | "lobby" | "game" | "profile">("home");
+  const [profileReturnScreen, setProfileReturnScreen] = useState<"home" | "game">("home");
+  const [profile, setProfile] = useState(loadProfile);
+  const [theme, setTheme] = useState<"light" | "dark">(() => { try { const saved = localStorage.getItem("frontier.theme"); if (saved === "light" || saved === "dark") return saved; } catch { /* Use system preference. */ } return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; });
+  const [matchId, setMatchId] = useState(0);
+  const [trackMatch, setTrackMatch] = useState(false);
+  const recordedMatchRef = useRef(-1);
   const [mapChoice, setMapChoice] = useState<string>(MAP_PRESETS[0].id);
   const [duration, setDuration] = useState(300);
   const [managedTerritory, setManagedTerritory] = useState<TerritoryId | null>(null);
@@ -51,6 +62,18 @@ export default function App() {
     population: getPopulation(game, "human"),
     credits: game.tradeCredits.human,
   }), [game]);
+
+  useEffect(() => { document.documentElement.dataset.theme = theme; try { localStorage.setItem("frontier.theme", theme); } catch { /* Keep the current appearance in memory. */ } }, [theme]);
+  useEffect(() => saveProfile(profile), [profile]);
+  useEffect(() => {
+    if (!game.winner || !trackMatch || matchId === recordedMatchRef.current) return;
+    recordedMatchRef.current = matchId;
+    const result: "win" | "loss" | "draw" = game.winner === "draw" ? "draw" : game.winner === "human" ? "win" : "loss";
+    const map = MAP_PRESETS.find((preset) => game.map.id.startsWith(`${preset.id}-`))?.name ?? "Unknown map";
+    setProfile((current) => ({ ...current, history: [{ id: Date.now(), result, map, seconds: game.tick, playedAt: new Date().toISOString() }, ...current.history].slice(0, 20) }));
+  }, [game.winner, game.tick, game.map.id, matchId, trackMatch]);
+
+  function openProfile() { if (screen === "profile") return; setProfileReturnScreen(screen === "game" ? "game" : "home"); setScreen("profile"); }
 
   function activateMode(action: ActionMode) {
     setMode(action); setSelected(null); setAttackUnits(null); setBuildingToPlace(null);
@@ -158,11 +181,13 @@ export default function App() {
 
   function startMatch(forceDemo = demoMode) {
     const preset = getMapPreset(mapChoice);
+    setMatchId((id) => id + 1); setTrackMatch(!forceDemo);
     setDemoMode(forceDemo); setGame(createInitialGame(duration, preset.seed, preset.id)); setSelected(null); setAttackUnits(null); setBuildingToPlace(null); setManagedTerritory(null); setContextMenu(null); setPaused(false); setScreen("game");
     setHint(forceDemo ? "Blue and red commanders are fighting." : "Select a friendly region to begin. Right-click it to manage population.");
   }
 
   function enterPreview() {
+    setMatchId((id) => id + 1); setTrackMatch(false);
     setDemoMode(true); setPaused(false); setSpeed(1); setSelected(null); setManagedTerritory(null); setContextMenu(null);
     setHint("You joined the live local demo. Blue and red commanders are fighting.");
     setScreen("game");
@@ -191,11 +216,13 @@ export default function App() {
     { title: "Manage population", detail: "Right-click a blue province and choose Manage population for its skill tree.", done: Object.values(game.territories).some((territory) => territory.owner === "human" && Object.values(territory.upgrades).some((level) => level > 0)) },
   ];
   const nextGuideStep = guideSteps.findIndex((step) => !step.done);
-  if (screen !== "game") return <main className="app-shell lobby-shell"><p className="eyebrow">FRONTIER · LOCAL PROTOTYPE</p><h1>Frontier</h1><p className="subtitle">Create a continent. Command its future.</p>
+  const siteHeader = <SiteHeader theme={theme} profile={profile} onThemeChange={() => setTheme((current) => current === "dark" ? "light" : "dark")} onHome={returnHome} onCreate={() => setScreen("setup")} onProfile={openProfile} />;
+  if (screen === "profile") return <main className="app-shell profile-shell">{siteHeader}<ProfilePanel profile={profile} onChange={setProfile} onClose={() => setScreen(profileReturnScreen)} /></main>;
+  if (screen !== "game") return <main className="app-shell lobby-shell">{siteHeader}<div className="home-hero"><p className="eyebrow">FRONTIER · LOCAL PROTOTYPE</p><h1>Frontier</h1><p className="subtitle">Create a continent. Command its future.</p></div>
     {screen === "home" ? <><button type="button" className="live-preview" onClick={enterPreview} aria-label="Open the live local bot match"><span className="live-preview-map"><GameMap game={game} speed={1} paused={false} selected={null} onTerritoryClick={() => {}} /></span><span className="live-preview-info"><span className="live-preview-label"><i /> LIVE LOCAL MATCH</span><strong>{game.winner ? "Match finished" : "A frontier is taking shape"}</strong><span>Blue AI {getControlScore(game, "human")} · Red AI {getControlScore(game, "bot")}</span><span>{game.winner ? "Open the final map" : `Match time ${String(Math.floor(game.tick / 60)).padStart(2, "0")}:${String(game.tick % 60).padStart(2, "0")}`}</span><b>Watch this match →</b></span></button><section className="lobby-card"><h2>Choose your next match</h2><p>Play against bots on one of five fictional continents.</p><div className="lobby-actions"><button className="primary" onClick={() => setScreen("setup")}>Create match</button><button onClick={() => setScreen("lobby")}>Join local lobby</button></div><small>Online lobbies are planned; this prototype runs locally in your browser.</small></section></> : screen === "lobby" ? <section className="lobby-card"><h2>Local lobby</h2><p>A practice table is ready with two bot commanders. Join to watch their match.</p><div className="lobby-actions"><button onClick={returnHome}>Back</button><button className="primary" onClick={() => startMatch(true)}>Join practice match</button></div></section> : <section className="lobby-card"><h2>Create match</h2><p>Choose a map and rules before the clock starts.</p><div className="map-options">{MAP_PRESETS.map((preset) => <button key={preset.id} className={mapChoice === preset.id ? "map-option active" : "map-option"} onClick={() => setMapChoice(preset.id)}><strong>{preset.name}</strong><span>{preset.description}</span></button>)}</div><div className="match-options"><label>Duration<select value={duration} onChange={(event) => setDuration(Number(event.target.value))}><option value={180}>3 minutes</option><option value={300}>5 minutes</option><option value={600}>10 minutes</option></select></label><label>Bot difficulty<select value={difficulty} onChange={(event) => setDifficulty(event.target.value as BotDifficulty)}><option value="easy">Easy</option><option value="normal">Normal</option><option value="expert">Expert</option></select></label><label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => setDemoMode(event.target.checked)} />Blue auto-play (demo)</label></div><div className="lobby-actions"><button onClick={returnHome}>Back</button><button className="primary" onClick={() => startMatch()}>Start match</button></div></section>}
   </main>;
-  return <main className="app-shell">
-    <header>
+  return <main className="app-shell">{siteHeader}
+    <header className="match-header">
       <div><p className="eyebrow">LOCAL REACT PROTOTYPE · GENERATED CONTINENT</p><h1>Frontier</h1><p className="subtitle">Every cell is land. Every city is a decision.</p></div>
       <div className="scoreboard"><div><span>{demoMode ? "Blue AI" : "You"}</span><strong>{scores.human}</strong></div><div><span>Red AI</span><strong>{scores.bot}</strong></div><div><span>Population</span><strong>{scores.population.toLocaleString()}</strong></div><div><span>Time</span><strong>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</strong></div></div>
     </header>
@@ -210,9 +237,9 @@ export default function App() {
       <aside className="control-panel">
         {managedTerritory && <div className="skill-panel"><div className="skill-heading"><div><p className="eyebrow">MANAGE POPULATION</p><h2>{getTerritory(game.map, managedTerritory).label}</h2></div><button onClick={() => setManagedTerritory(null)} aria-label="Close population management">×</button></div><p>{game.territories[managedTerritory].population} citizens · {game.tradeCredits.human} credits</p><div className="skill-tree">{(["housing", "industry", "militia"] as PopulationUpgrade[]).map((upgrade, index) => { const level = game.territories[managedTerritory].upgrades[upgrade] ?? 0; const prerequisite = index === 1 ? (game.territories[managedTerritory].upgrades.housing ?? 0) >= 1 : index === 2 ? (game.territories[managedTerritory].upgrades.industry ?? 0) >= 1 : true; return <div className="skill-node" key={upgrade}><span className="skill-step">{index + 1}</span><div><strong>{UPGRADE_NAMES[upgrade]} · {level}/3</strong><small>{upgrade === "housing" ? "+1 population per level" : upgrade === "industry" ? "+1 unit per level" : "Level 2 restores fortifications"}</small></div><button disabled={level >= 3 || !prerequisite || game.tradeCredits.human < upgradeCost(level) || game.territories[managedTerritory].owner !== "human"} onClick={() => submit({ type: "upgrade", player: "human", territory: managedTerritory, upgrade })}>{level >= 3 ? "Max" : `${upgradeCost(level)} cr`}</button></div>; })}</div><small>Unlock each branch from top to bottom. Improvements belong to this province.</small></div>}
         <div className="construction-menu"><p className="eyebrow">TRADE & DEVELOPMENT</p><p className="description">Trade routes fund permanent infrastructure. Click a project, then choose a friendly territory.</p>{buildingCards.map((card) => <button key={card.building} className={buildingToPlace === card.building ? "building-card active" : "building-card"} disabled={scores.credits < BUILDING_COSTS[card.building]} onClick={() => beginConstruction(card.building)}><b>{card.icon}</b><span><strong>{BUILDING_NAMES[card.building]} · {BUILDING_COSTS[card.building]} credits</strong><small>{card.description}</small></span></button>)}</div>
-        <div><p className="eyebrow">COMMAND</p><div className="actions">{(["expand", "fortify", "supply", "trade"] as ActionMode[]).map((action, index) => <button key={action} className={mode === action && !buildingToPlace ? "active" : ""} onClick={() => activateMode(action)}><span>{action}</span><kbd>{index + 1}</kbd></button>)}</div><p className="description">{descriptions[mode]}</p>{mode === "expand" && selected && <div className="force-control"><div><p className="eyebrow">ATTACK FORCE</p><strong>{committedUnits} units</strong><span>{selectedUnits - committedUnits} remain defending {getTerritory(game.map, selected).label}.</span></div><input aria-label="Attack force" type="range" min="1" max={maxAttackUnits} value={committedUnits} onChange={(event) => setAttackUnits(Number(event.target.value))} /><div className="force-presets"><button type="button" onClick={() => setAttackUnits(1)}>1</button><button type="button" onClick={() => setAttackUnits(Math.max(1, Math.floor(maxAttackUnits / 2)))}>Half</button><button type="button" onClick={() => setAttackUnits(maxAttackUnits)}>Max</button></div></div>}</div>
+        <div><p className="eyebrow">COMMAND</p><div className="actions">{(["expand", "fortify", "supply", "trade"] as ActionMode[]).map((action, index) => { const Icon = commandIcons[action]; return <button key={action} className={mode === action && !buildingToPlace ? "active" : ""} onClick={() => activateMode(action)}><span><Icon size={16} />{action}</span><kbd>{index + 1}</kbd></button>; })}</div><p className="description">{descriptions[mode]}</p>{mode === "expand" && selected && <div className="force-control"><div><p className="eyebrow">ATTACK FORCE</p><strong>{committedUnits} units</strong><span>{selectedUnits - committedUnits} remain defending {getTerritory(game.map, selected).label}.</span></div><input aria-label="Attack force" type="range" min="1" max={maxAttackUnits} value={committedUnits} onChange={(event) => setAttackUnits(Number(event.target.value))} /><div className="force-presets"><button type="button" onClick={() => setAttackUnits(1)}>1</button><button type="button" onClick={() => setAttackUnits(Math.max(1, Math.floor(maxAttackUnits / 2)))}>Half</button><button type="button" onClick={() => setAttackUnits(maxAttackUnits)}>Max</button></div></div>}</div>
         <label>Bot difficulty<select value={difficulty} onChange={(event) => setDifficulty(event.target.value as BotDifficulty)}><option value="easy">Easy</option><option value="normal">Normal</option><option value="expert">Expert</option></select></label>
-        <label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => { setDemoMode(event.target.checked); setSelected(null); setBuildingToPlace(null); setHint(event.target.checked ? "Demo enabled. Blue and red commanders are fighting." : "Demo disabled. Blue is under your command."); }} />Auto-play blue (demo)</label>
+        <label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => { setDemoMode(event.target.checked); if (event.target.checked) setTrackMatch(false); setSelected(null); setBuildingToPlace(null); setHint(event.target.checked ? "Demo enabled. Blue and red commanders are fighting." : "Demo disabled. Blue is under your command."); }} />Auto-play blue (demo)</label>
         <div className="controls"><button className="primary" onClick={() => setScreen("setup")}>Create match</button></div>
         <div className="log"><p className="eyebrow">BATTLE LOG</p>{game.events.map((event, index) => <p key={`${event.tick}-${index}`}><span>{event.tick}s</span>{event.message}</p>)}</div>
       </aside>
