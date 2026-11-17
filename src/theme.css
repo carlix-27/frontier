@@ -127,6 +127,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, .photo-add:focu
 .province-menu-action > svg { color: var(--accent); }
 .province-menu button:hover:not(:disabled) { background: var(--button-hover); }
 .province-menu button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.map-command-indicator, .map-players { background: var(--surface); background: color-mix(in srgb, var(--surface) 91%, transparent); backdrop-filter: blur(8px); border-color: var(--border); color: var(--text); }
+.map-command-indicator span, .map-players span { color: var(--muted); }
+.map-command-indicator kbd { background: var(--accent); color: #fff; }
+.map-players strong { opacity: .63; }
 .guide-reopen, .guide-header button { border-radius: 5px; }
 .profile-shell { max-width: 1080px; }
 .profile-page { padding-bottom: 40px; }
