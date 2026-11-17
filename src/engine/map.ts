@@ -1,6 +1,10 @@
 import { Delaunay } from "d3-delaunay";
 import type { MapDefinition, PlayerId, TerritoryDefinition, TerritoryId } from "./types";
 import { getBotIds } from "./players";
+import { generateMap, type MapPreset } from "./mapGenerator";
+import { GENERATED_MAP_PRESETS } from "./mapPresets";
+export { generateMap } from "./mapGenerator";
+export type { MapGenerationConfig } from "./mapGenerator";
 
 const MAP_WIDTH = 900;
 const MAP_HEIGHT = 600;
@@ -63,12 +67,13 @@ function roughPath(vertices: Point[], roughness: number): string {
 
 export const LAND_PATH = roughPath(coastline, 10);
 
-export const MAP_PRESETS = [
+export const MAP_PRESETS: readonly MapPreset[] = [
   { id: "crownlands", name: "Crownlands", seed: 27, description: "A broad central continent" },
   { id: "shattered-coast", name: "Shattered Coast", seed: 81, description: "Jagged western bays" },
   { id: "highlands", name: "Highlands", seed: 142, description: "A tall northern landmass" },
   { id: "southern-reach", name: "Southern Reach", seed: 306, description: "Wide southern frontier" },
   { id: "crescent", name: "Crescent", seed: 519, description: "A narrow curved continent" },
+  ...GENERATED_MAP_PRESETS,
 ] as const;
 
 export function getMapPreset(id: string) { return MAP_PRESETS.find((preset) => preset.id === id) ?? MAP_PRESETS[0]; }
@@ -162,6 +167,8 @@ function chooseCapitals(points: Point[], botCount: number): Map<number, PlayerId
 }
 
 export function generateFrontierMap(seed = 27, presetId = "crownlands", botCount = 1): MapDefinition {
+  const preset = getMapPreset(presetId);
+  if (preset.generation) return generateMap(preset.generation, seed, botCount, preset.id);
   const coast = coastlineFor(presetId);
   const points = placePoints(seed, coast);
   const islands = placeIslands(seed, coast);

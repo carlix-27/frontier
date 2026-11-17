@@ -13,6 +13,7 @@ export interface TerritoryDefinition {
   neighbours: TerritoryId[];
   seaNeighbours: TerritoryId[];
   island?: boolean;
+  landmassId?: string;
   capitalFor?: PlayerId;
 }
 
@@ -20,6 +21,7 @@ export interface MapDefinition {
   id: string;
   seed: number;
   landPath: string;
+  landmassCount?: number;
   territories: TerritoryDefinition[];
 }
 

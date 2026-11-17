@@ -66,7 +66,7 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
     })}</g>
     <path d={game.map.landPath} className="land-bed" />
     <path d={game.map.landPath} className="land-outline" />
-    <path className="river" d="M556,145 C535,200 570,238 531,284 C495,328 526,372 482,430" />
+    {!game.map.landmassCount && <path className="river" d="M556,145 C535,200 570,238 531,284 C495,328 526,372 482,430" />}
     {selected && <g className="sea-attack-routes">{getTerritory(game.map, selected).seaNeighbours.map((id) => { const source = getTerritory(game.map, selected); const target = getTerritory(game.map, id); return <line key={id} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />; })}</g>}
     <g clipPath="url(#land-clip)">
       {game.map.territories.map((territory) => {

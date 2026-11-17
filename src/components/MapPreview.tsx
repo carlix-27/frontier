@@ -10,7 +10,7 @@ export function MapPreview({ presetId, botCount }: { presetId: string; botCount:
   const islandCount = map.territories.filter((territory) => territory.island).length;
 
   return <section className="setup-map-preview" aria-label={`Preview of ${preset.name}`}>
-    <div className="setup-preview-heading"><div><p className="eyebrow">SELECTED MAP</p><h3>{preset.name}</h3><p>{preset.description}</p></div><div className="setup-preview-stats"><span><Map size={15} />{map.territories.length} provinces</span><span><Waves size={15} />{islandCount} islands</span></div></div>
+    <div className="setup-preview-heading"><div><p className="eyebrow">SELECTED MAP</p><h3>{preset.name}</h3><p>{preset.description}</p></div><div className="setup-preview-stats"><span><Map size={15} />{map.territories.length} provinces</span><span><MapPin size={15} />{map.landmassCount ?? 1} large landmasses</span><span><Waves size={15} />{islandCount} small islands</span></div></div>
     <svg className="setup-preview-svg" viewBox="0 0 900 600" role="img" aria-label={`${preset.name}: ${map.territories.length} provinces, ${islandCount} islands, and ${botCount + 1} starting capitals`}>
       <defs><clipPath id={clipId}><path d={map.landPath} /></clipPath><linearGradient id={`preview-ocean-${preset.id}`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient></defs>
       <rect width="900" height="600" fill={`url(#preview-ocean-${preset.id})`} />

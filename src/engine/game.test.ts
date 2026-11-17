@@ -122,7 +122,7 @@ describe("Frontier engine", () => {
     expect(first.map.territories).toHaveLength(50);
   });
   it("generates all five selectable coastlines with valid capitals", () => {
-    const maps = MAP_PRESETS.map((preset) => createInitialGame(300, preset.seed, preset.id).map);
+    const maps = MAP_PRESETS.filter(preset => !preset.generation).map((preset) => createInitialGame(300, preset.seed, preset.id).map);
     expect(new Set(maps.map((map) => map.landPath)).size).toBe(5);
     for (const map of maps) {
       expect(map.territories).toHaveLength(50);

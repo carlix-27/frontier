@@ -16,7 +16,8 @@ Then open the local URL printed by Vite. Use the map to select territories and i
 ## Current prototype
 
 - One player versus one deterministic bot, or a local demonstration with two bots.
-- Five deterministic fictional maps with 32 mainland provinces and 18 conquerable islands each.
+- Fifteen deterministic fictional maps: five classic continents and ten varied worlds with multiple countries separated by water, plus conquerable islands.
+- Configurable [map generation](docs/map-generation.md): country, province and island counts, layout, roughness and seed.
 - Expand, fortify, supply, and trade commands, plus province development.
 - Maritime invasions with visible ships and supply connections back to the capital.
 - Live match preview, adjustable game speed, and a fullscreen map with zoom and drag navigation.
