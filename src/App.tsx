@@ -25,8 +25,8 @@ const commandIcons: Record<ActionMode, LucideIcon> = { expand: Swords, fortify: 
 
 const buildingCards: Array<{ building: BuildingType; icon: ReactNode; description: string }> = [
   { building: "housing", icon: <House size={20} />, description: "+2 population every production cycle." },
-  { building: "factory", icon: <Factory size={20} />, description: "+1 unit every production cycle." },
-  { building: "railway", icon: <TrainFront size={20} />, description: "+1 population and a moving train." },
+  { building: "factory", icon: <Factory size={20} />, description: "+1 unit each cycle; adds a station for connected trains." },
+  { building: "railway", icon: <TrainFront size={20} />, description: "+1 population each cycle; adds a station for connected trains." },
 ];
 
 function defaultAttackForce(units: number): number { return Math.max(1, Math.min(3, units - 1)); }

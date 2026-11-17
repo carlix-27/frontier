@@ -10,7 +10,7 @@ function CityScene({ x, y, buildings, speed }: { x: number; y: number; buildings
   return <g className="city-scene" transform={`translate(${x - 18} ${y - 42})`}>
     {buildings.includes("housing") && <g className="city-house"><path d="M0,12 L9,4 L18,12 V23 H0 Z" /><rect x="7" y="16" width="4" height="7" /></g>}
     {buildings.includes("factory") && <g className="city-factory" transform="translate(19 4)"><path d="M0,20 V8 L6,12 L10,7 L14,12 V20 Z" /><rect x="13" y="0" width="4" height="20" /><circle cx="15" cy="-3" r="2" className="city-smoke"><animate attributeName="cy" values="-3;-12" dur={`${2 / speed}s`} repeatCount="indefinite" /><animate attributeName="opacity" values=".7;0" dur={`${2 / speed}s`} repeatCount="indefinite" /></circle></g>}
-    {buildings.includes("railway") && <g className="city-railway" transform="translate(-3 26)"><path d="M0,0 H41" /><g className="city-train"><animateTransform attributeName="transform" type="translate" values="0 0;20 0;0 0" dur={`${2.4 / speed}s`} repeatCount="indefinite" /><rect x="0" y="-5" width="11" height="5" /><circle cx="3" cy="1" r="1.4" /><circle cx="8" cy="1" r="1.4" /></g></g>}
+    {(buildings.includes("factory") || buildings.includes("railway")) && <g className="city-station" transform="translate(6 29)"><rect className="station-platform" x="0" y="0" width="22" height="3" rx=".5" /><rect className="station-building" x="6" y="-7" width="10" height="7" /><path className="station-roof" d="M4,-7 L11,-11 L18,-7 Z" /></g>}
     <g className="city-citizens"><circle cx="4" cy="27" r="1.4"><animate attributeName="cx" values="4;14;4" dur={`${2.2 / speed}s`} repeatCount="indefinite" /></circle><circle cx="17" cy="27" r="1.4"><animate attributeName="cx" values="17;28;17" dur={`${2.8 / speed}s`} repeatCount="indefinite" /></circle></g>
   </g>;
 }
@@ -34,13 +34,23 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
   useEffect(() => { if (paused) svgRef.current?.pauseAnimations(); else svgRef.current?.unpauseAnimations(); }, [paused]);
   const moving = game.events.filter((event) => event.movement).slice(0, 3);
   const captures = game.events.filter((event) => event.capture).slice(0, 2);
-  const roads = game.roadLinks.map((id) => {
+  const rails = game.roadLinks.map((id) => {
     const [fromId, toId] = id.split(":");
     const from = getTerritory(game.map, fromId);
     const to = getTerritory(game.map, toId);
     const bend = ((from.x + to.y) % 9) - 4;
-    return { id, path: `M${from.x},${from.y - 16} Q${(from.x + to.x) / 2 + bend},${(from.y + to.y) / 2 - 16} ${to.x},${to.y - 16}`, supplied: game.suppliedLinks.includes(id) };
+    const start = `${from.x},${from.y - 16}`;
+    const end = `${to.x},${to.y - 16}`;
+    const control = `${(from.x + to.x) / 2 + bend},${(from.y + to.y) / 2 - 16}`;
+    return { id, fromId, toId, path: `M${start} Q${control} ${end}`, roundTrip: `M${start} Q${control} ${end} Q${control} ${start}`, supplied: game.suppliedLinks.includes(id) };
   });
+  const stationIds = game.map.territories.filter((territory) => game.territories[territory.id].owner && game.territories[territory.id].buildings.some((building) => building === "factory" || building === "railway")).map((territory) => territory.id);
+  const trainLinks = new Set<string>();
+  for (const station of stationIds) {
+    const connection = rails.find((rail) => !trainLinks.has(rail.id) && (rail.fromId === station || rail.toId === station) && game.territories[rail.fromId].owner === game.territories[rail.toId].owner);
+    if (connection) trainLinks.add(connection.id);
+  }
+  const trains = rails.filter((rail) => trainLinks.has(rail.id)).slice(0, 8);
   return <svg ref={svgRef} className="game-map" viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
     <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient></defs>
     <rect width="900" height="600" fill="url(#ocean)" />
@@ -61,7 +71,8 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
         </g>;
       })}
-      <g className="dirt-roads">{roads.map((road) => <g key={road.id} className={road.supplied ? "dirt-road supplied" : "dirt-road"}><path d={road.path} className="road-bed" /><path d={road.path} className="road-surface" /></g>)}</g>
+      <g className="rail-lines">{rails.map((rail) => <g key={rail.id} className={rail.supplied ? "rail-link supplied" : "rail-link"}><path d={rail.path} className="rail-bed" /><path d={rail.path} className="rail-ties" /><path d={rail.path} className="rail-metal" /></g>)}</g>
+      <g className="rail-traffic">{trains.map((train) => <g key={train.id} className="rail-train"><animateMotion path={train.roundTrip} dur={`${9 / speed}s`} repeatCount="indefinite" rotate="auto" /><rect className="train-body" x="-5" y="-3" width="10" height="6" rx="1" /><rect className="train-window" x="-3" y="-2" width="3" height="2" /><rect className="train-window" x="1" y="-2" width="2" height="2" /><circle className="train-wheel" cx="-3" cy="3" r="1" /><circle className="train-wheel" cx="3" cy="3" r="1" /></g>)}</g>
       <g className="city-layer">{game.map.territories.map((territory) => <CityScene key={`city-${territory.id}`} x={territory.x} y={territory.y} buildings={game.territories[territory.id].buildings} speed={speed} />)}</g>
     </g>
     <g clipPath="url(#land-clip)">{captures.map((event) => {

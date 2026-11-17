@@ -18,11 +18,15 @@
 .capture-wave.bot { fill: #d87c7c; }
 .capture-border { fill: none; stroke: #fff7cc; stroke-width: 5; pointer-events: none; }
 .sea-attack-routes { pointer-events: none; stroke: #dff6ef; stroke-dasharray: 5 5; stroke-width: 2; }
-.dirt-roads { pointer-events: none; }
-.dirt-road path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.dirt-road .road-bed { stroke: #6b5438; stroke-width: 3; opacity: .58; }
-.dirt-road .road-surface { stroke: #d6b989; stroke-width: 1.4; opacity: .72; }
-.dirt-road.supplied .road-surface { stroke: #e1c687; stroke-width: 1.8; opacity: .82; }
+.rail-lines, .rail-traffic { pointer-events: none; }
+.rail-link path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.rail-link .rail-bed { stroke: #5b554a; stroke-width: 2.7; opacity: .5; }
+.rail-link .rail-ties { stroke: #504b43; stroke-dasharray: 1 5; stroke-linecap: butt; stroke-width: 4.6; opacity: .32; }
+.rail-link .rail-metal { stroke: #ddd9c9; stroke-width: 1.1; opacity: .77; }
+.rail-link.supplied .rail-metal { stroke: #f2e4bd; opacity: .9; }
+.rail-train .train-body { fill: #c65d45; stroke: #3b4344; stroke-width: .7; }
+.rail-train .train-window { fill: #e2eadf; }
+.rail-train .train-wheel { fill: #263a3f; }
 .island-name { font-size: 9px; }
 .island-units { font-size: 15px; }
 .invasion-ship { pointer-events: none; }
@@ -82,9 +86,9 @@
 .city-house path, .city-factory path, .city-factory rect { fill: #f4e8bd; stroke: #30433b; stroke-width: 1; }
 .city-house rect { fill: #5d4130; }
 .city-smoke { fill: #e8f5f6; }
-.city-railway path { fill: none; stroke: #31433a; stroke-width: 2; }
-.city-train rect { fill: #d9774a; stroke: #48291e; stroke-width: .8; }
-.city-train circle { fill: #253b42; }
+.city-station .station-platform { fill: #796d58; stroke: #3b4b42; stroke-width: .6; }
+.city-station .station-building { fill: #f3e8c8; stroke: #34493f; stroke-width: .8; }
+.city-station .station-roof { fill: #8b594d; stroke: #34493f; stroke-width: .8; }
 .city-citizens circle { fill: #f7e279; stroke: #31433a; stroke-width: .5; }
 .lobby-shell { max-width: 980px; padding-top: 70px; }
 .live-preview { background: #0c2032; border: 1px solid #4b738d; color: #f7fbff; cursor: pointer; display: grid; gap: 0; grid-template-columns: minmax(0, 1fr) 220px; margin-top: 28px; overflow: hidden; padding: 0; text-align: left; width: 100%; }
