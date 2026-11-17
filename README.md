@@ -27,9 +27,9 @@ Then open the local URL printed by Vite. Use the map to select territories and i
 
 ## Commands
 
-- **Expand:** select a friendly territory, choose the attack force, then select an adjacent province or one linked by a sea route. Maritime attacks travel by ship.
+- **Expand:** select a friendly territory, choose the force, then select an adjacent province or one linked by sea. Selecting an allied land province transfers troops along a dirt road instead of fighting it. Maritime attacks travel by ship.
 - **Fortify:** select a friendly territory and spend units to increase its defence.
-- **Supply:** select two adjacent friendly land territories to establish a route that increases production. Owned islands receive production while connected to your capital through owned provinces and sea links.
+- **Supply:** select two adjacent friendly land territories to improve their road and increase production. Dirt roads appear automatically between neighboring allied provinces and give attacks from connected towns +1 combat power. Owned islands receive production while connected to your capital through owned provinces and sea links.
 - **Trade:** connect two friendly territories to earn credits for buildings and population upgrades.
 
 ## Project direction

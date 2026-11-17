@@ -111,18 +111,25 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
   const attackers = command.units ?? Math.floor(source.units / 2);
   if (!Number.isInteger(attackers) || attackers < 1 || attackers >= source.units) return { ok: false, state, reason: "Choose a whole number of units and leave at least one behind." };
   source.units -= attackers;
+  const byRoad = !bySea && target.owner === command.player;
+  const roadSupport = !bySea && origin.neighbours.some((neighbour) => territories[neighbour].owner === command.player);
   const defence = target.units + target.fortification * 2;
-  const movement = { from: command.from, to: command.to, player: command.player, units: attackers, bySea };
+  const movement = { from: command.from, to: command.to, player: command.player, units: attackers, bySea, byRoad };
   if (bySea) {
     const invasion = { from: command.from, to: command.to, player: command.player, units: attackers, arrivalTick: state.tick + 1 };
     return { ok: true, state: withEvent({ ...state, territories, invasions: [...state.invasions, invasion] }, `${command.player} launched ${attackers} units by sea toward ${getTerritory(state.map, command.to).label}.`, movement) };
   }
-  if (attackers > defence) {
-    const previousOwner = target.owner; target.owner = command.player; target.units = attackers - defence; target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
+  if (target.owner === command.player) {
+    target.units += attackers;
+    return { ok: true, state: withEvent({ ...state, territories }, `${command.player} moved ${attackers} units along the road to ${getTerritory(state.map, command.to).label}.`, movement) };
+  }
+  const attackPower = attackers + (roadSupport ? 1 : 0);
+  if (attackPower > defence) {
+    const previousOwner = target.owner; target.owner = command.player; target.units = Math.max(1, attackPower - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
     const message = previousOwner ? `${command.player} captured ${getTerritory(state.map, command.to).label}.` : `${command.player} claimed ${getTerritory(state.map, command.to).label}.`;
     return { ok: true, state: withEvent({ ...state, territories }, message, movement, { territory: command.to, from: command.from, player: command.player, previousOwner }) };
   }
-  target.units = Math.max(1, defence - attackers);
+  target.units = Math.max(1, defence - attackPower);
   return { ok: true, state: withEvent({ ...state, territories }, `${command.player}'s attack was repelled.`, movement) };
 }
 
@@ -133,7 +140,7 @@ export function advanceGame(state: GameState): GameState {
     const territory = next.territories[definition.id];
     if (territory.owner && isConnectedToCapital(next, definition.id, territory.owner)) {
       territory.population += (definition.capitalFor ? 3 : 1) + (territory.buildings.includes("housing") ? 2 : 0) + (territory.buildings.includes("railway") ? 1 : 0) + (territory.upgrades.housing ?? 0);
-      const supplyBonus = definition.neighbours.some((neighbour) => next.suppliedLinks.includes(linkId(definition.id, neighbour))) ? 1 : 0;
+      const supplyBonus = definition.neighbours.some((neighbour) => next.territories[neighbour].owner === territory.owner && next.suppliedLinks.includes(linkId(definition.id, neighbour))) ? 1 : 0;
       territory.units += 1 + supplyBonus + (territory.buildings.includes("factory") ? 1 : 0) + (territory.upgrades.industry ?? 0);
       territory.fortification = Math.min(MAX_FORTIFICATION, territory.fortification + ((territory.upgrades.militia ?? 0) >= 2 && next.tick % 9 === 0 ? 1 : 0));
     }

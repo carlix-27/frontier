@@ -15,7 +15,7 @@ type ActionMode = "expand" | "fortify" | "supply" | "trade";
 type GameSpeed = 1 | 2 | 4;
 
 const descriptions: Record<ActionMode, string> = {
-  expand: "Move your chosen force across a shared frontier or marked sea route.",
+  expand: "Attack a neighbor or move units to an ally along a road. A connected road adds 1 attack power.",
   fortify: "Spend 2 units to increase a territory's defence.",
   supply: "Open a route between adjacent friendly territories for faster growth.",
   trade: "Connect two friendly ports. Every delivery brings population and trade credits.",
@@ -85,12 +85,18 @@ export default function App() {
     const timer = window.setInterval(() => setGame((current) => {
       if ((screen !== "game" && screen !== "home") || (screen === "game" && paused) || (screen === "home" && document.hidden) || current.winner) return current;
       let next = advanceGame(current);
-      const cadence = screen === "home" ? 3 : difficulty === "easy" ? 5 : difficulty === "normal" ? 3 : 2;
+      const cadence = difficulty === "easy" && screen !== "home" ? 2 : 1;
       if (!next.winner && next.tick % cadence === 0) {
         const commanders: PlayerId[] = screen === "home" || demoMode ? ["human", "bot"] : ["bot"];
+        const actionsPerCommander = screen === "home" || demoMode ? 3 : difficulty === "expert" ? 2 : 1;
         for (const player of commanders) {
-          const command = chooseBotCommand(next, difficulty, player);
-          if (command) { const result = applyCommand(next, command); if (result.ok) next = result.state; }
+          for (let action = 0; action < actionsPerCommander; action += 1) {
+            const command = chooseBotCommand(next, screen === "home" ? "normal" : difficulty, player);
+            if (!command) break;
+            const result = applyCommand(next, command);
+            if (!result.ok) break;
+            next = result.state;
+          }
           if (next.winner) break;
         }
       }
@@ -150,7 +156,7 @@ export default function App() {
   function submit(command: GameCommand) {
     const result = applyCommand(game, command);
     if (!result.ok) { setHint(result.reason); return false; }
-    setGame(result.state); setSelected(null); setAttackUnits(null); return true;
+    setGame(result.state); setSelected(null); setAttackUnits(null); setHint(result.state.events[0]?.message ?? "Command completed."); return true;
   }
 
   function beginConstruction(building: BuildingType) {

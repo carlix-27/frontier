@@ -108,6 +108,44 @@ describe("Frontier engine", () => {
     expect(result.state.territories[capital.id].units).toBe(9);
     expect(result.state.events[0].movement?.units).toBe(3);
   });
+  it("draws on friendly roads for troop transfers without fighting allies", () => {
+    const initial = createInitialGame();
+    const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
+    const destination = capital.neighbours[0];
+    const territories = { ...initial.territories, [destination]: { ...initial.territories[destination], owner: "human" as const, units: 7 } };
+    const result = applyCommand({ ...initial, territories }, { type: "expand", player: "human", from: capital.id, to: destination, units: 4 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.territories[capital.id].units).toBe(8);
+    expect(result.state.territories[destination].units).toBe(11);
+    expect(result.state.events[0].movement?.byRoad).toBe(true);
+  });
+  it("gives an attacker with an allied road a small combat advantage", () => {
+    const initial = createInitialGame();
+    const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
+    const ally = capital.neighbours[0];
+    const enemy = capital.neighbours.find((id) => id !== ally)!;
+    const territories = { ...initial.territories, [ally]: { ...initial.territories[ally], owner: "human" as const }, [capital.id]: { ...initial.territories[capital.id], units: 5 }, [enemy]: { ...initial.territories[enemy], units: 3 } };
+    const withoutRoad = applyCommand({ ...initial, territories: { ...territories, [ally]: { ...territories[ally], owner: null } } }, { type: "expand", player: "human", from: capital.id, to: enemy, units: 3 });
+    const withRoad = applyCommand({ ...initial, territories }, { type: "expand", player: "human", from: capital.id, to: enemy, units: 3 });
+    expect(withoutRoad.state.territories[enemy].owner).toBeNull();
+    expect(withRoad.state.territories[enemy].owner).toBe("human");
+  });
+  it("reaches a decisive result faster in a normal bot demonstration", () => {
+    let state = createInitialGame(300);
+    for (let tick = 0; tick < 180 && !state.winner; tick += 1) {
+      state = advanceGame(state);
+      for (const player of ["human", "bot"] as const) for (let action = 0; action < 3 && !state.winner; action += 1) {
+        const command = chooseBotCommand(state, "normal", player);
+        if (!command) break;
+        const result = applyCommand(state, command);
+        if (!result.ok) break;
+        state = result.state;
+      }
+    }
+    expect(state.winner).not.toBeNull();
+    expect(state.tick).toBeLessThan(90);
+  });
   it("opens a trade route and delivers population on production ticks", () => {
     const initial = createInitialGame();
     const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;

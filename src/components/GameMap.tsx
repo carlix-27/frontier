@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { getTerritory } from "../engine/map";
+import { getTerritory, linkId } from "../engine/map";
 import type { BuildingType, GameState, TerritoryId } from "../engine/types";
 
 interface Props { game: GameState; speed: 1 | 2 | 4; paused: boolean; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; onTerritoryContextMenu?: (id: TerritoryId, x: number, y: number) => void; }
@@ -33,6 +33,13 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
   useEffect(() => { if (paused) svgRef.current?.pauseAnimations(); else svgRef.current?.unpauseAnimations(); }, [paused]);
   const moving = game.events.filter((event) => event.movement).slice(0, 3);
   const captures = game.events.filter((event) => event.capture).slice(0, 2);
+  const roads = game.map.territories.flatMap((territory) => territory.neighbours.filter((neighbor) => territory.id < neighbor && game.territories[territory.id].owner && game.territories[territory.id].owner === game.territories[neighbor].owner).map((neighbor) => {
+    const destination = getTerritory(game.map, neighbor);
+    const midpointX = (territory.x + destination.x) / 2;
+    const midpointY = (territory.y + destination.y) / 2 - 24;
+    const bend = ((territory.x + territory.y + destination.x) % 17) - 8;
+    return { id: linkId(territory.id, neighbor), path: `M${territory.x},${territory.y - 24} Q${midpointX + bend},${midpointY + bend} ${destination.x},${destination.y - 24}`, supplied: game.suppliedLinks.includes(linkId(territory.id, neighbor)) };
+  }));
   return <svg ref={svgRef} className="game-map" viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
     <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient></defs>
     <rect width="900" height="600" fill="url(#ocean)" />
@@ -53,10 +60,7 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
         </g>;
       })}
-      {game.suppliedLinks.map((link) => {
-        const [from, to] = link.split(":"); const first = getTerritory(game.map, from); const second = getTerritory(game.map, to);
-        return <line key={link} className="supply-link" x1={first.x} y1={first.y} x2={second.x} y2={second.y} />;
-      })}
+      <g className="dirt-roads">{roads.map((road) => <g key={road.id} className={road.supplied ? "dirt-road supplied" : "dirt-road"}><path d={road.path} className="road-bed" pathLength="100" strokeDasharray="100" strokeDashoffset="100"><animate attributeName="stroke-dashoffset" from="100" to="0" dur={`${0.7 / speed}s`} fill="freeze" /></path><path d={road.path} className="road-surface" pathLength="100" strokeDasharray="100" strokeDashoffset="100"><animate attributeName="stroke-dashoffset" from="100" to="0" dur={`${0.7 / speed}s`} fill="freeze" /></path></g>)}</g>
       <g className="city-layer">{game.map.territories.map((territory) => <CityScene key={`city-${territory.id}`} x={territory.x} y={territory.y} buildings={game.territories[territory.id].buildings} speed={speed} />)}</g>
     </g>
     <g clipPath="url(#land-clip)">{captures.map((event) => {
@@ -73,7 +77,7 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
         const path = `M${from.x},${from.y} Q${(from.x + to.x) / 2},${(from.y + to.y) / 2 - 16} ${to.x},${to.y}`;
         return <g key={`${event.tick}-${index}-${move.from}-${move.to}`} className="invasion-ship"><path d={path} className="invasion-wake"><animate attributeName="stroke-opacity" values="0;.8;0" dur={`${0.9 / speed}s`} fill="freeze" /></path><g><animateMotion path={path} dur={`${0.9 / speed}s`} fill="freeze" rotate="auto" /><path d="M-9,2 L9,2 L6,7 L-6,7 Z" className={`invasion-hull ${move.player}`} /><rect x="-5" y="-5" width="4" height="7" /><rect x="1" y="-5" width="4" height="7" /><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.82;1" dur={`${0.9 / speed}s`} fill="freeze" /></g></g>;
       }
-      return <g key={`${event.tick}-${index}-${move.from}-${move.to}`}><circle className={`troop ${move.player}`} r="6" cx={from.x} cy={from.y}><animate attributeName="cx" from={from.x} to={to.x} dur={`${0.8 / speed}s`} fill="freeze" /><animate attributeName="cy" from={from.y} to={to.y} dur={`${0.8 / speed}s`} fill="freeze" /></circle><text className="troop-count" x={from.x} y={from.y - 12}>{move.units}</text></g>;
+      return <g key={`${event.tick}-${index}-${move.from}-${move.to}`}><circle className={`troop ${move.player}`} r="6" cx={from.x} cy={from.y}><animate attributeName="cx" from={from.x} to={to.x} dur={`${(move.byRoad ? 0.45 : 0.8) / speed}s`} fill="freeze" /><animate attributeName="cy" from={from.y} to={to.y} dur={`${(move.byRoad ? 0.45 : 0.8) / speed}s`} fill="freeze" /></circle><text className="troop-count" x={from.x} y={from.y - 12}>{move.units}</text></g>;
     })}
   </svg>;
 }

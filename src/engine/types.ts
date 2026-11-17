@@ -41,6 +41,7 @@ export interface GameEvent {
     player: PlayerId;
     units: number;
     bySea?: boolean;
+    byRoad?: boolean;
   };
   capture?: {
     territory: TerritoryId;
