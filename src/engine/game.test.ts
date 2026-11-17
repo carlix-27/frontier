@@ -1,11 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { chooseBotCommand } from "../bots/basicBot";
-import { advanceGame, applyCommand, createInitialGame } from "./game";
+import { advanceGame, applyCommand, createInitialGame, createRematch } from "./game";
 import { linkId, MAP_PRESETS } from "./map";
 import { areAllied } from "./diplomacy";
 import { getBotIds, getMatchPlayers, getPlayerColor, isPlayerAlive } from "./players";
 
 describe("Frontier engine", () => {
+  it("restarts a finished match with the same map, duration, and bot count", () => {
+    const original = createInitialGame(600, 81, "shattered-coast", 6);
+    const finished = { ...advanceGame(original), winner: "bot" as const };
+    const rematch = createRematch(finished);
+    expect(rematch.tick).toBe(0);
+    expect(rematch.winner).toBeNull();
+    expect(rematch.maxTicks).toBe(600);
+    expect(rematch.map).toEqual(original.map);
+    expect(getMatchPlayers(rematch)).toHaveLength(7);
+    expect(rematch.roadLinks).toEqual([]);
+  });
   it("requires an alliance for international trade and rewards both nations", () => {
     const initial = createInitialGame();
     const human = initial.map.territories.find((territory) => territory.capitalFor === "human")!;

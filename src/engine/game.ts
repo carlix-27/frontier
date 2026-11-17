@@ -1,4 +1,4 @@
-import { generateFrontierMap, getTerritory, linkId } from "./map";
+import { generateFrontierMap, getTerritory, linkId, MAP_PRESETS } from "./map";
 import { allianceId, areAllied } from "./diplomacy";
 import { getMatchPlayers, getPlayerName, isPlayerAlive } from "./players";
 import type { BuildingType, CommandResult, GameCommand, GameState, PlayerId, PopulationUpgrade, TerritoryId, TerritoryState } from "./types";
@@ -60,6 +60,11 @@ export function createInitialGame(maxTicks = 300, seed = 27, presetId = "crownla
   const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0, buildings: territory.capitalFor ? ["housing"] : [], upgrades: {} }])) as Record<TerritoryId, TerritoryState>;
   const tradeCredits = Object.fromEntries(map.territories.filter((territory) => territory.capitalFor).map((territory) => [territory.capitalFor, 0])) as Record<PlayerId, number>;
   return { tick: 0, maxTicks, map, territories, roadLinks: [], suppliedLinks: [], alliances: [], tradeRoutes: [], invasions: [], tradeCredits, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
+}
+
+export function createRematch(state: GameState): GameState {
+  const preset = MAP_PRESETS.find((candidate) => state.map.id.startsWith(`${candidate.id}-`)) ?? MAP_PRESETS[0];
+  return createInitialGame(state.maxTicks, state.map.seed, preset.id, getMatchPlayers(state).length - 1);
 }
 
 export function applyCommand(state: GameState, command: GameCommand): CommandResult {
