@@ -1,7 +1,8 @@
 import { getTerritory, linkId } from "../engine/map";
-import { BUILDING_COSTS } from "../engine/game";
+import { buildingCost } from "../engine/game";
 import { isPlayerAlive } from "../engine/players";
 import { areAllied } from "../engine/diplomacy";
+import { POPULATION_SKILLS, populationEffects, skillLockReason } from "../engine/population";
 import type { BuildingType, GameCommand, GameState, PlayerId, TerritoryId } from "../engine/types";
 
 export type BotDifficulty = "easy" | "normal" | "expert";
@@ -16,14 +17,14 @@ export function chooseBotCommand(state: GameState, difficulty: BotDifficulty, pl
     if (target.owner === player || (target.owner && areAllied(state, player, target.owner))) return false;
     const origin = getTerritory(state.map, from);
     const roadBonus = !origin.seaNeighbours.includes(to) && origin.neighbours.some((neighbor) => state.territories[neighbor].owner === player) ? 1 : 0;
-    return state.territories[from].units - 1 + roadBonus > target.units + target.fortification * 2 + attackMargin;
+    return state.territories[from].units - 1 + roadBonus + populationEffects(state.territories[from]).attack > target.units + target.fortification * 2 + populationEffects(target).defence + attackMargin;
   }).sort((left, right) => {
     const priority = (to: TerritoryId) => { const territory = getTerritory(state.map, to); return territory.capitalFor && territory.capitalFor !== player ? 3 : state.territories[to].owner ? 2 : territory.island ? 1 : 0; };
     return priority(right.to) - priority(left.to) || (left.target.units + left.target.fortification * 2) - (right.target.units + right.target.fortification * 2);
   })[0];
   if (winningAttack) {
     const source = state.territories[winningAttack.from];
-    const needed = winningAttack.target.units + winningAttack.target.fortification * 2 + attackMargin + 1;
+    const needed = winningAttack.target.units + winningAttack.target.fortification * 2 + populationEffects(winningAttack.target).defence + attackMargin + 1;
     return { type: "expand", player, from: winningAttack.from, to: winningAttack.to, units: Math.min(source.units - 1, Math.max(Math.ceil(source.units * .75), needed)) };
   }
   const distance = new Map<TerritoryId, number>();
@@ -38,10 +39,18 @@ export function chooseBotCommand(state: GameState, difficulty: BotDifficulty, pl
   }
   const transfer = owned.filter((id) => (distance.get(id) ?? 0) > 0 && state.territories[id].units >= 8).sort((first, second) => state.territories[second].units - state.territories[first].units).map((from) => ({ from, to: getTerritory(state.map, from).neighbours.find((neighbor) => state.territories[neighbor].owner === player && (distance.get(neighbor) ?? Infinity) < (distance.get(from) ?? Infinity)) })).find(({ to }) => !!to);
   if (transfer?.to) return { type: "expand", player, from: transfer.from, to: transfer.to, units: Math.floor(state.territories[transfer.from].units / 2) };
+  if (state.tick % (difficulty === "easy" ? 12 : 6) === 0) {
+    const priorities = difficulty === "expert" ? ["defence", "economy", "politics", "civil"] : ["economy", "civil", "defence", "politics"];
+    const candidates = [...POPULATION_SKILLS].sort((a, b) => a.tier - b.tier || priorities.indexOf(a.branch) - priorities.indexOf(b.branch));
+    for (const territory of owned) {
+      const skill = candidates.find(skill => !skillLockReason(state.territories[territory], skill, state.tradeCredits[player]));
+      if (skill) return { type: "research", player, territory, skill: skill.id };
+    }
+  }
   const trade = owned.flatMap((from) => owned.filter((to) => to !== from).map((to) => ({ from, to }))).find(({ from, to }) => !state.tradeRoutes.some((route) => route.player === player && route.recipient === player && route.id === linkId(from, to)));
   if (trade && state.tradeRoutes.filter((route) => route.player === player).length < Math.max(1, Math.floor(owned.length / 6))) return { type: "trade", player, from: trade.from, to: trade.to };
   const buildOrder: BuildingType[] = ["factory", "railway", "housing"];
-  const construction = owned.flatMap((territory) => buildOrder.filter((building) => state.tradeCredits[player] >= BUILDING_COSTS[building] && !state.territories[territory].buildings.includes(building)).map((building) => ({ territory, building })))[0];
+  const construction = owned.flatMap((territory) => buildOrder.filter((building) => state.tradeCredits[player] >= buildingCost(state.territories[territory], building) && !state.territories[territory].buildings.includes(building)).map((building) => ({ territory, building })))[0];
   if (construction) return { type: "build", player, territory: construction.territory, building: construction.building };
   const threatened = owned.find((id) => state.territories[id].fortification < 1 && state.territories[id].units >= 8 && getTerritory(state.map, id).neighbours.some((neighbour) => state.territories[neighbour].owner !== null && state.territories[neighbour].owner !== player));
   if (threatened) return { type: "fortify", player, territory: threatened };

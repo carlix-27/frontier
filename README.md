@@ -19,6 +19,7 @@ Then open the local URL printed by Vite. Use the map to select territories and i
 - Fifteen deterministic fictional maps: five classic continents and ten varied worlds with multiple countries separated by water, plus conquerable islands.
 - Configurable [map generation](docs/map-generation.md): country, province and island counts, layout, roughness and seed.
 - Expand, fortify, supply, and trade commands, plus province development.
+- [Province skill trees](docs/population-development.md): 24 local economic, civil, political and defence skills, population-driven development points and exclusive specializations.
 - Maritime invasions with visible ships and supply connections back to the capital.
 - Live match preview, adjustable game speed, and a fullscreen map with zoom and drag navigation.
 - GitHub-inspired interface with Lucide icons, persistent light/dark themes, and a local player profile with photos and recent match results.

@@ -1,3 +1,4 @@
+import type { SkillId } from "./population";
 export type PlayerId = "human" | "bot" | `bot-${number}`;
 export type BuildingType = "housing" | "factory" | "railway";
 export type PopulationUpgrade = "housing" | "industry" | "militia";
@@ -32,6 +33,8 @@ export interface TerritoryState {
   fortification: number;
   buildings: BuildingType[];
   upgrades: Partial<Record<PopulationUpgrade, number>>;
+  skills?: SkillId[];
+  development?: number;
 }
 
 export interface GameEvent {
@@ -74,6 +77,7 @@ export interface SeaInvasion {
   player: PlayerId;
   units: number;
   arrivalTick: number;
+  attackBonus?: number;
 }
 
 export interface TradeRoute {
@@ -129,7 +133,7 @@ export interface UpgradeCommand {
   upgrade: PopulationUpgrade;
 }
 
-export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand | AllianceCommand | BuildCommand | UpgradeCommand;
+export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand | AllianceCommand | BuildCommand | UpgradeCommand | { type: "research"; player: PlayerId; territory: TerritoryId; skill: SkillId };
 
 export type CommandResult =
   | { ok: true; state: GameState }

@@ -1,6 +1,7 @@
 import { generateFrontierMap, getTerritory, linkId, MAP_PRESETS } from "./map";
 import { allianceId, areAllied } from "./diplomacy";
 import { getMatchPlayers, getPlayerName, isPlayerAlive } from "./players";
+import { developmentRate, getSkill, populationEffects, skillLockReason } from "./population";
 import type { BuildingType, CommandResult, GameCommand, GameState, PlayerId, PopulationUpgrade, TerritoryId, TerritoryState } from "./types";
 
 const PRODUCTION_INTERVAL = 3;
@@ -8,6 +9,7 @@ const MAX_FORTIFICATION = 3;
 const EVENT_LIMIT = 8;
 export const BUILDING_COSTS: Record<BuildingType, number> = { housing: 4, factory: 7, railway: 5 };
 export const BUILDING_NAMES: Record<BuildingType, string> = { housing: "Housing district", factory: "Factory", railway: "Railway" };
+export function buildingCost(territory: TerritoryState, building: BuildingType): number { return Math.max(1, BUILDING_COSTS[building] - populationEffects(territory).discount); }
 export const UPGRADE_NAMES: Record<PopulationUpgrade, string> = { housing: "Neighborhoods", industry: "Workshops", militia: "Civil guard" };
 export function upgradeCost(level: number): number { return 3 + level * 3; }
 
@@ -83,6 +85,17 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     return { ok: true, state: withEvent({ ...state, alliances: state.alliances.filter((alliance) => alliance !== id), tradeRoutes }, `${getPlayerName(command.player)} ended the alliance with ${getPlayerName(command.with)}.`) };
   }
   const territories = copyTerritories(state.territories);
+  if (command.type === "research") {
+    const territory = territories[command.territory];
+    if (!territory || territory.owner !== command.player) return { ok: false, state, reason: "Research belongs to a province you control." };
+    const skill = getSkill(command.skill);
+    if (!skill) return { ok: false, state, reason: "Unknown population skill." };
+    const reason = skillLockReason(territory, skill, state.tradeCredits[command.player]);
+    if (reason) return { ok: false, state, reason };
+    territory.skills = [...(territory.skills ?? []), skill.id];
+    territory.development = (territory.development ?? 0) - skill.points;
+    return { ok: true, state: withEvent({ ...state, territories, tradeCredits: { ...state.tradeCredits, [command.player]: state.tradeCredits[command.player] - skill.credits } }, `${getTerritory(state.map, command.territory).label} adopted ${skill.name}.`) };
+  }
   if (command.type === "upgrade") {
     const territory = territories[command.territory];
     if (!territory || territory.owner !== command.player) return { ok: false, state, reason: "Manage population only in your territories." };
@@ -99,7 +112,7 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     const territory = territories[command.territory];
     if (!territory || territory.owner !== command.player) return { ok: false, state, reason: "Build only in one of your territories." };
     if (territory.buildings.includes(command.building)) return { ok: false, state, reason: "That territory already has this infrastructure." };
-    const cost = BUILDING_COSTS[command.building];
+    const cost = buildingCost(territory, command.building);
     if (state.tradeCredits[command.player] < cost) return { ok: false, state, reason: `You need ${cost} trade credits.` };
     territory.buildings = [...territory.buildings, command.building];
     return { ok: true, state: withEvent({ ...state, territories, tradeCredits: { ...state.tradeCredits, [command.player]: state.tradeCredits[command.player] - cost } }, `${command.player} built ${BUILDING_NAMES[command.building]} in ${getTerritory(state.map, command.territory).label}.`) };
@@ -142,23 +155,23 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
   source.units -= attackers;
   const byRoad = !bySea && target.owner === command.player;
   const roadSupport = !bySea && origin.neighbours.some((neighbour) => territories[neighbour].owner === command.player);
-  const defence = target.units + target.fortification * 2;
+  const defence = target.units + target.fortification * 2 + populationEffects(target).defence;
   const movement = { from: command.from, to: command.to, player: command.player, units: attackers, bySea, byRoad };
   if (bySea) {
-    const invasion = { from: command.from, to: command.to, player: command.player, units: attackers, arrivalTick: state.tick + 1 };
+    const invasion = { from: command.from, to: command.to, player: command.player, units: attackers, attackBonus: populationEffects(source).attack, arrivalTick: state.tick + 1 };
     return { ok: true, state: withEvent({ ...state, territories, invasions: [...state.invasions, invasion] }, `${command.player} launched ${attackers} units by sea toward ${getTerritory(state.map, command.to).label}.`, movement) };
   }
   if (target.owner === command.player) {
     target.units += attackers;
     return { ok: true, state: withEvent({ ...state, territories }, `${command.player} moved ${attackers} units along the road to ${getTerritory(state.map, command.to).label}.`, movement) };
   }
-  const attackPower = attackers + (roadSupport ? 1 : 0);
+  const attackPower = attackers + (roadSupport ? 1 : 0) + populationEffects(source).attack;
   if (attackPower > defence) {
-    const previousOwner = target.owner; target.owner = command.player; target.units = Math.max(1, attackPower - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
+    const previousOwner = target.owner; target.owner = command.player; target.units = Math.max(1, attackers + (roadSupport ? 1 : 0) - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
     const message = previousOwner ? `${command.player} captured ${getTerritory(state.map, command.to).label}.` : `${command.player} claimed ${getTerritory(state.map, command.to).label}.`;
     return { ok: true, state: withEvent(withRoad({ ...state, territories }, command.from, command.to), message, movement, { territory: command.to, from: command.from, player: command.player, previousOwner }) };
   }
-  target.units = Math.max(1, defence - attackPower);
+  target.units = Math.min(target.units, Math.max(1, defence - attackPower));
   return { ok: true, state: withEvent({ ...state, territories }, `${command.player}'s attack was repelled.`, movement) };
 }
 
@@ -167,7 +180,15 @@ export function advanceGame(state: GameState): GameState {
   let next: GameState = { ...state, tick: state.tick + 1, territories: copyTerritories(state.territories), tradeCredits: { ...state.tradeCredits } };
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const definition of next.map.territories) {
     const territory = next.territories[definition.id];
-    if (territory.owner && isConnectedToCapital(next, definition.id, territory.owner)) {
+    const effects = populationEffects(territory);
+    if (territory.owner && isPlayerAlive(next, territory.owner) && (effects.autonomous || isConnectedToCapital(next, definition.id, territory.owner))) {
+      territory.development = (territory.development ?? 0) + developmentRate(territory);
+      territory.population += effects.growth;
+      territory.units += effects.units;
+      if (next.tick % 9 === 0) {
+        next.tradeCredits[territory.owner] += effects.income;
+        territory.fortification = Math.min(MAX_FORTIFICATION, territory.fortification + effects.recovery);
+      }
       territory.population += (definition.capitalFor ? 3 : 1) + (territory.buildings.includes("housing") ? 2 : 0) + (territory.buildings.includes("railway") ? 1 : 0) + (territory.upgrades.housing ?? 0);
       const supplyBonus = definition.neighbours.some((neighbour) => next.territories[neighbour].owner === territory.owner && next.suppliedLinks.includes(linkId(definition.id, neighbour))) ? 1 : 0;
       territory.units += 1 + supplyBonus + (territory.buildings.includes("factory") ? 1 : 0) + (territory.upgrades.industry ?? 0);
@@ -177,12 +198,14 @@ export function advanceGame(state: GameState): GameState {
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const route of next.tradeRoutes) {
     const recipient = next.territories[route.to].owner;
     if (next.territories[route.from].owner !== route.player || !isPlayerAlive(next, route.player) || recipient !== route.recipient) continue;
-    if (recipient === route.player) { next.territories[route.to].population += 2; next.tradeCredits[route.player] += 2; }
+    const sourceBonus = populationEffects(next.territories[route.from]).trade;
+    const targetBonus = populationEffects(next.territories[route.to]).trade;
+    if (recipient === route.player) { next.territories[route.to].population += 2; next.tradeCredits[route.player] += 2 + sourceBonus + targetBonus; }
     else if (areAllied(next, route.player, recipient) && isPlayerAlive(next, recipient)) {
       next.territories[route.from].population += 1;
       next.territories[route.to].population += 1;
-      next.tradeCredits[route.player] += 2;
-      next.tradeCredits[recipient] += 2;
+      next.tradeCredits[route.player] += 2 + sourceBonus;
+      next.tradeCredits[recipient] += 2 + targetBonus;
     }
   }
   const arrivals = next.invasions.filter((invasion) => invasion.arrivalTick <= next.tick);
@@ -195,13 +218,14 @@ export function advanceGame(state: GameState): GameState {
       continue;
     }
     if (target.owner === invasion.player) { target.units += invasion.units; next = withEvent(next, `${invasion.player} reinforced ${getTerritory(next.map, invasion.to).label} by sea.`); continue; }
-    const defence = target.units + target.fortification * 2;
-    if (invasion.units > defence) {
+    const defence = target.units + target.fortification * 2 + populationEffects(target).defence;
+    const attackPower = invasion.units + (invasion.attackBonus ?? 0);
+    if (attackPower > defence) {
       const previousOwner = target.owner;
-      target.owner = invasion.player; target.units = invasion.units - defence; target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
+      target.owner = invasion.player; target.units = Math.max(1, invasion.units - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
       next = withEvent(next, `${invasion.player} landed and captured ${getTerritory(next.map, invasion.to).label}.`, undefined, { territory: invasion.to, from: invasion.from, player: invasion.player, previousOwner });
     } else {
-      target.units = Math.max(1, defence - invasion.units);
+      target.units = Math.min(target.units, Math.max(1, defence - attackPower));
       next = withEvent(next, `${invasion.player}'s landing at ${getTerritory(next.map, invasion.to).label} was repelled.`);
     }
   }
