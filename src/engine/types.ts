@@ -40,6 +40,7 @@ export interface TerritoryState {
 export interface GameEvent {
   tick: number;
   message: string;
+  diplomacy?: { proposer: PlayerId; responder: PlayerId; accepted: boolean; reason: string };
   movement?: {
     from: TerritoryId;
     to: TerritoryId;
@@ -64,6 +65,7 @@ export interface GameState {
   roadLinks: string[];
   suppliedLinks: string[];
   alliances: string[];
+  allianceCooldowns?: Record<string, number>;
   tradeRoutes: TradeRoute[];
   invasions: SeaInvasion[];
   tradeCredits: Record<PlayerId, number>;

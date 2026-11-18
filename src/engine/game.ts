@@ -1,5 +1,5 @@
 import { generateFrontierMap, getTerritory, linkId, MAP_PRESETS } from "./map";
-import { allianceId, areAllied } from "./diplomacy";
+import { allianceId, areAllied, evaluateAlliance } from "./diplomacy";
 import { getMatchPlayers, getPlayerName, isPlayerAlive } from "./players";
 import { developmentRate, getSkill, populationEffects, skillLockReason } from "./population";
 import type { BuildingType, CommandResult, GameCommand, GameState, PlayerId, PopulationUpgrade, TerritoryId, TerritoryState } from "./types";
@@ -78,7 +78,12 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     const allied = state.alliances.includes(id);
     if (command.type === "ally") {
       if (allied) return { ok: false, state, reason: "These nations are already allied." };
-      return { ok: true, state: withEvent({ ...state, alliances: [...state.alliances, id] }, `${getPlayerName(command.player)} and ${getPlayerName(command.with)} formed an alliance.`) };
+      const retryAt = state.allianceCooldowns?.[id] ?? 0;
+      if (state.tick < retryAt) return { ok: false, state, reason: `Wait ${retryAt - state.tick} game seconds before proposing again.` };
+      const decision = evaluateAlliance(state, command.player, command.with);
+      const message = `${getPlayerName(command.with)} ${decision.accepted ? "accepted" : "rejected"} ${getPlayerName(command.player)}'s alliance proposal. ${decision.reason}`;
+      const event = { tick: state.tick, message, diplomacy: { proposer: command.player, responder: command.with, ...decision } };
+      return { ok: true, state: { ...state, alliances: decision.accepted ? [...state.alliances, id] : state.alliances, allianceCooldowns: decision.accepted ? state.allianceCooldowns : { ...state.allianceCooldowns, [id]: state.tick + 30 }, events: [event, ...state.events].slice(0, EVENT_LIMIT) } };
     }
     if (!allied) return { ok: false, state, reason: "These nations are not allied." };
     const tradeRoutes = state.tradeRoutes.filter((route) => allianceId(route.player, route.recipient) !== id);

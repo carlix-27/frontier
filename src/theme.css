@@ -243,3 +243,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, .photo-add:focu
 .population-footnote svg { vertical-align: middle; }
 .population-floating { position: absolute; z-index: 40; right: 10px; top: 145px; bottom: 10px; overflow-y: auto; width: min(390px, 90vw); box-shadow: 0 12px 32px #0005; border-radius: 10px; }
 @media (max-width: 1000px) { .game-layout:has(.population-workshop) { grid-template-columns: 1fr; } }
+.diplomacy-notice { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 12; display: flex; align-items: flex-start; gap: 10px; width: min(380px, calc(100% - 32px)); padding: 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-left: 4px solid var(--success); border-radius: 8px; box-shadow: 0 8px 24px #0006; }
+.diplomacy-notice.rejected { border-left-color: #cf6068; }
+.diplomacy-notice > svg { color: var(--success); flex-shrink: 0; }
+.diplomacy-notice.rejected > svg { color: #cf6068; }
+.diplomacy-notice div { flex: 1; display: grid; gap: 4px; }
+.diplomacy-notice strong { font-size: .85rem; }
+.diplomacy-notice span { color: var(--muted); font-size: .75rem; line-height: 1.4; }
+.diplomacy-notice button { display: grid; place-items: center; padding: 3px; background: transparent; border: 0; color: var(--muted); }
