@@ -66,6 +66,9 @@ export interface GameState {
   suppliedLinks: string[];
   alliances: string[];
   allianceCooldowns?: Record<string, number>;
+  pendingAlliances?: Array<{ proposer: PlayerId; responder: PlayerId; resolveAt: number; roll: number }>;
+  allianceAttempts?: Record<string, number>;
+  diplomacyResults?: Array<{ id: string; proposer: PlayerId; responder: PlayerId; accepted: boolean; reason: string }>;
   tradeRoutes: TradeRoute[];
   invasions: SeaInvasion[];
   tradeCredits: Record<PlayerId, number>;

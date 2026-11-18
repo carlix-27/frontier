@@ -98,7 +98,7 @@ describe("province skill trees", () => {
     let { game, id } = fixture();
     game = learn(learn(game, id, "market"), id, "docks");
     const other = game.map.territories.find(t => t.capitalFor === "bot")!.id;
-    const alliance = applyCommand(game, { type: "ally", player: "human", with: "bot" }).state;
+    const alliance = { ...game, alliances: ["bot:human"] };
     const route = applyCommand(alliance, { type: "trade", player: "human", from: id, to: other }).state;
     const next = advanceGame({ ...route, tick: 2 });
     expect(next.tradeCredits.human - route.tradeCredits.human).toBe(3);

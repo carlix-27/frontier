@@ -261,3 +261,5 @@ button:focus-visible, input:focus-visible, select:focus-visible, .photo-add:focu
 .leave-match-actions button:hover { background: var(--button-hover); }
 .leave-match-actions .leave-match-confirm { background: #b4232d; border-color: #b4232d; color: #fff; }
 .leave-match-actions .leave-match-confirm:hover { background: #8f1c24; }
+.diplomacy-pending { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 11; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; box-shadow: 0 6px 18px #0005; font-size: .75rem; display: grid; gap: 6px; }
+.diplomacy-pending div { display: flex; align-items: center; gap: 5px; }

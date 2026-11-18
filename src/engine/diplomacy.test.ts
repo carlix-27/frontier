@@ -1,41 +1,58 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, createInitialGame } from "./game";
-import { areAllied } from "./diplomacy";
+import { advanceGame, applyCommand, createInitialGame, createRematch } from "./game";
+import { allianceRoll, areAllied, evaluateAlliance } from "./diplomacy";
+import type { GameState } from "./types";
+const advance = (state: GameState, ticks: number) => { for (let i = 0; i < ticks; i++) state = advanceGame(state); return state; };
+const proposal = { type: "ally" as const, player: "human" as const, with: "bot" as const };
+const forceRoll = (state: GameState, roll: number): GameState => ({ ...state, pendingAlliances: state.pendingAlliances!.map(p => ({ ...p, roll })) });
 
 describe("bot alliance proposals", () => {
-  it("accepts an equally strong partner and enables trading and protection", () => {
+  it("waits five ticks, blocks duplicates and trade, then accepts when the decision succeeds", () => {
     const game = createInitialGame();
-    const result = applyCommand(game, { type: "ally", player: "human", with: "bot" });
-    expect(result.ok).toBe(true);
-    expect(result.state.events[0].diplomacy?.accepted).toBe(true);
-    expect(areAllied(result.state, "human", "bot")).toBe(true);
     const from = game.map.territories.find(t => t.capitalFor === "human")!.id;
     const to = game.map.territories.find(t => t.capitalFor === "bot")!.id;
-    expect(applyCommand(result.state, { type: "trade", player: "human", from, to }).ok).toBe(true);
+    const request = applyCommand(game, proposal);
+    expect(request.ok).toBe(true);
+    expect(areAllied(request.state, "human", "bot")).toBe(false);
+    expect(applyCommand(request.state, proposal).ok).toBe(false);
+    expect(applyCommand(request.state, { type: "trade", player: "human", from, to }).ok).toBe(false);
+    const waiting = advance(forceRoll(request.state, 0), 4);
+    expect(areAllied(waiting, "human", "bot")).toBe(false);
+    const accepted = advance(waiting, 1);
+    expect(accepted.diplomacyResults?.[0].accepted).toBe(true);
+    expect(areAllied(accepted, "human", "bot")).toBe(true);
+    expect(applyCommand(accepted, { type: "trade", player: "human", from, to }).ok).toBe(true);
   });
-  it("rejects a weak proposer, blocks trade and applies a game-time cooldown", () => {
+  it("rejects even an equal nation and allows a later new attempt", () => {
     const game = createInitialGame();
+    const request = applyCommand(game, proposal).state;
+    const rejected = advance(forceRoll(request, .99), 5);
+    expect(rejected.diplomacyResults?.[0].accepted).toBe(false);
+    expect(areAllied(rejected, "human", "bot")).toBe(false);
+    expect(applyCommand(rejected, proposal).ok).toBe(false);
+    const retry = applyCommand(advance(rejected, 30), proposal);
+    expect(retry.ok).toBe(true);
+    expect(retry.state.allianceAttempts?.["bot:human"]).toBe(2);
+    expect(advance(forceRoll(retry.state, 0), 5).diplomacyResults?.at(-1)?.accepted).toBe(true);
+  });
+  it("evaluates current strength at resolution and uses a reproducible roll", () => {
+    const game = createInitialGame();
+    expect(allianceRoll(27, "human", "bot", 1)).toBe(allianceRoll(27, "human", "bot", 1));
+    expect(allianceRoll(27, "human", "bot", 1)).not.toBe(allianceRoll(27, "human", "bot", 2));
+    expect(evaluateAlliance(game, "human", "bot", .49).accepted).toBe(true);
+    expect(evaluateAlliance(game, "human", "bot", .51).accepted).toBe(false);
     const bot = game.map.territories.find(t => t.capitalFor === "bot")!.id;
-    const human = game.map.territories.find(t => t.capitalFor === "human")!.id;
     game.territories[bot].units = 100;
-    const proposal = { type: "ally" as const, player: "human" as const, with: "bot" as const };
-    const rejected = applyCommand(game, proposal);
-    expect(rejected.ok).toBe(true);
-    expect(rejected.state.events[0].diplomacy?.accepted).toBe(false);
-    expect(areAllied(rejected.state, "human", "bot")).toBe(false);
-    expect(applyCommand(rejected.state, { type: "trade", player: "human", from: human, to: bot }).ok).toBe(false);
-    const retry = applyCommand(rejected.state, proposal);
-    expect(retry.ok).toBe(false);
-    if (!retry.ok) expect(retry.reason).toContain("30 game seconds");
-    const changed = { ...rejected.state, tick: 30, territories: { ...rejected.state.territories, [human]: { ...rejected.state.territories[human], units: 100 } } };
-    const accepted = applyCommand(changed, proposal);
-    expect(accepted.state.events[0].diplomacy?.accepted).toBe(true);
-    expect(areAllied(accepted.state, "human", "bot")).toBe(true);
+    expect(evaluateAlliance(game, "human", "bot", .4).accepted).toBe(false);
   });
-  it("refuses invalid proposals without changing state", () => {
-    const game = createInitialGame();
-    const result = applyCommand(game, { type: "ally", player: "human", with: "human" });
-    expect(result.ok).toBe(false);
-    expect(result.state).toBe(game);
+  it("cancels pending proposals if a capital falls and resets on replay", () => {
+    const game = applyCommand(createInitialGame(300, 27, "crownlands", 2), proposal).state;
+    const bot = game.map.territories.find(t => t.capitalFor === "bot")!.id;
+    const captured = { ...game, territories: { ...game.territories, [bot]: { ...game.territories[bot], owner: "bot-2" as const } } };
+    const next = advanceGame(captured);
+    expect(next.pendingAlliances).toHaveLength(0);
+    expect(next.diplomacyResults?.[0].reason).toContain("cancelled");
+    expect(areAllied(next, "human", "bot")).toBe(false);
+    expect(createRematch(next).pendingAlliances ?? []).toHaveLength(0);
   });
 });

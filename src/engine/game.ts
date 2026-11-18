@@ -1,5 +1,5 @@
 import { generateFrontierMap, getTerritory, linkId, MAP_PRESETS } from "./map";
-import { allianceId, areAllied, evaluateAlliance } from "./diplomacy";
+import { allianceId, allianceRoll, areAllied, evaluateAlliance } from "./diplomacy";
 import { getMatchPlayers, getPlayerName, isPlayerAlive } from "./players";
 import { developmentRate, getSkill, populationEffects, skillLockReason } from "./population";
 import type { BuildingType, CommandResult, GameCommand, GameState, PlayerId, PopulationUpgrade, TerritoryId, TerritoryState } from "./types";
@@ -80,10 +80,10 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
       if (allied) return { ok: false, state, reason: "These nations are already allied." };
       const retryAt = state.allianceCooldowns?.[id] ?? 0;
       if (state.tick < retryAt) return { ok: false, state, reason: `Wait ${retryAt - state.tick} game seconds before proposing again.` };
-      const decision = evaluateAlliance(state, command.player, command.with);
-      const message = `${getPlayerName(command.with)} ${decision.accepted ? "accepted" : "rejected"} ${getPlayerName(command.player)}'s alliance proposal. ${decision.reason}`;
-      const event = { tick: state.tick, message, diplomacy: { proposer: command.player, responder: command.with, ...decision } };
-      return { ok: true, state: { ...state, alliances: decision.accepted ? [...state.alliances, id] : state.alliances, allianceCooldowns: decision.accepted ? state.allianceCooldowns : { ...state.allianceCooldowns, [id]: state.tick + 30 }, events: [event, ...state.events].slice(0, EVENT_LIMIT) } };
+      if ((state.pendingAlliances ?? []).some(proposal => allianceId(proposal.proposer, proposal.responder) === id)) return { ok: false, state, reason: "An alliance proposal is already being considered." };
+      const attempt = (state.allianceAttempts?.[id] ?? 0) + 1;
+      const proposal = { proposer: command.player, responder: command.with, resolveAt: state.tick + 5, roll: allianceRoll(state.map.seed, command.player, command.with, attempt) };
+      return { ok: true, state: withEvent({ ...state, allianceAttempts: { ...state.allianceAttempts, [id]: attempt }, pendingAlliances: [...(state.pendingAlliances ?? []), proposal] }, `${getPlayerName(command.with)} is considering an alliance proposal.`) };
     }
     if (!allied) return { ok: false, state, reason: "These nations are not allied." };
     const tradeRoutes = state.tradeRoutes.filter((route) => allianceId(route.player, route.recipient) !== id);
@@ -233,6 +233,19 @@ export function advanceGame(state: GameState): GameState {
       target.units = Math.min(target.units, Math.max(1, defence - attackPower));
       next = withEvent(next, `${invasion.player}'s landing at ${getTerritory(next.map, invasion.to).label} was repelled.`);
     }
+  }
+  const proposals = next.pendingAlliances ?? [];
+  next.pendingAlliances = proposals.filter(proposal => proposal.resolveAt > next.tick && isPlayerAlive(next, proposal.proposer) && isPlayerAlive(next, proposal.responder));
+  for (const proposal of proposals) {
+    const alive = isPlayerAlive(next, proposal.proposer) && isPlayerAlive(next, proposal.responder);
+    if (alive && proposal.resolveAt > next.tick) continue;
+    const decision = alive ? evaluateAlliance(next, proposal.proposer, proposal.responder, proposal.roll) : { accepted: false, reason: "The proposal was cancelled because a capital fell." };
+    const id = allianceId(proposal.proposer, proposal.responder);
+    if (decision.accepted && !areAllied(next, proposal.proposer, proposal.responder)) next.alliances = [...next.alliances, id];
+    if (!decision.accepted && alive) next.allianceCooldowns = { ...next.allianceCooldowns, [id]: next.tick + 30 };
+    const result = { id: `${id}:${proposal.resolveAt}`, proposer: proposal.proposer, responder: proposal.responder, ...decision };
+    const message = `${getPlayerName(proposal.responder)} ${decision.accepted ? "accepted" : "declined"} the alliance. ${decision.reason}`;
+    next = { ...next, diplomacyResults: [...(next.diplomacyResults ?? []), result].slice(-20), events: [{ tick: next.tick, message, diplomacy: result }, ...next.events].slice(0, EVENT_LIMIT) };
   }
   const activePlayers = getMatchPlayers(next).filter((player) => isPlayerAlive(next, player));
   if (activePlayers.length === 0) return withEvent({ ...next, winner: "draw" }, "No capitals remain. The match is a draw.");
