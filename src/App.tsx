@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, Factory, Handshake, House, Shield, Ship, Swords, TrainFront, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, Factory, Handshake, House, LogOut, Shield, Ship, Swords, TrainFront, X, type LucideIcon } from "lucide-react";
 import { chooseBotCommand, type BotDifficulty } from "./bots/basicBot";
 import { GameMap } from "./components/GameMap";
 import { GameOverScreen } from "./components/GameOverScreen";
@@ -57,6 +57,7 @@ export default function App() {
   const [botCount, setBotCount] = useState(1);
   const [demoMode, setDemoMode] = useState(true);
   const [paused, setPaused] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const [speed, setSpeed] = useState<GameSpeed>(1);
   const [hint, setHint] = useState("The two commanders are securing their capitals.");
   const [showGuide, setShowGuide] = useState(true);
@@ -90,7 +91,7 @@ export default function App() {
 
   useEffect(() => {
     const timer = window.setInterval(() => setGame((current) => {
-      if ((screen !== "game" && screen !== "home") || (screen === "game" && paused) || (screen === "home" && document.hidden) || current.winner) return current;
+      if ((screen !== "game" && screen !== "home") || (screen === "game" && (paused || confirmLeave)) || (screen === "home" && document.hidden) || current.winner) return current;
       let next = advanceGame(current);
       const cadence = difficulty === "easy" && screen !== "home" ? 2 : 1;
       if (!next.winner && next.tick % cadence === 0) {
@@ -110,7 +111,7 @@ export default function App() {
       return next;
     }), screen === "home" ? 1000 : 1000 / speed);
     return () => window.clearInterval(timer);
-  }, [demoMode, difficulty, paused, screen, speed]);
+  }, [confirmLeave, demoMode, difficulty, paused, screen, speed]);
 
   useEffect(() => {
     if (screen !== "home" || !game.winner) return;
@@ -151,14 +152,21 @@ export default function App() {
     const shortcuts: Record<string, ActionMode> = { "1": "expand", "2": "fortify", "3": "supply", "4": "trade" };
     function handleShortcut(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.repeat) return;
-      if (screen !== "game" || event.target instanceof HTMLSelectElement || event.target instanceof HTMLInputElement) return;
+      if (screen !== "game" || confirmLeave || event.target instanceof HTMLSelectElement || event.target instanceof HTMLInputElement) return;
       const action = shortcuts[event.key];
       if (!action) return;
       event.preventDefault(); activateMode(action);
     }
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [screen]);
+  }, [screen, confirmLeave]);
+
+  useEffect(() => {
+    if (!confirmLeave) return;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); setConfirmLeave(false); } };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [confirmLeave]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -256,6 +264,7 @@ export default function App() {
 
   function returnHome() {
     leaveFullscreen();
+    setConfirmLeave(false); setPaused(false); setSelected(null); setAttackUnits(null); setBuildingToPlace(null); setManagedTerritory(null); setContextMenu(null);
     setTrackMatch(false);
     setGame(createInitialGame()); setScreen("home");
   }
@@ -289,12 +298,13 @@ export default function App() {
     <section className="game-layout">
       <div ref={mapPanelRef} className={`map-panel${fallbackFullscreen ? " map-expanded" : ""}`}>
         <div className="population-bar"><div><p className="eyebrow">POPULATION</p><strong>{scores.population.toLocaleString()}</strong><span>Unlimited citizens across your territories.</span></div><div className="trade-budget"><p className="eyebrow">TRADE CREDITS</p><strong>{scores.credits}</strong><span>Trade and local markets fund development.</span></div></div>
-        <div className="playback-bar"><span>GAME SPEED</span><div className="speed-options" role="group" aria-label="Game speed">{([1, 2, 4] as GameSpeed[]).map((option) => <button key={option} type="button" className={speed === option ? "active" : ""} aria-pressed={speed === option} onClick={() => setSpeed(option)}>×{option}</button>)}</div><small className="map-help">Wheel to zoom · Drag to move</small><button type="button" onClick={() => setMapResetToken((token) => token + 1)} aria-label="Reset map view">Reset view</button><button type="button" className="fullscreen-button" onClick={toggleMapFullscreen} aria-pressed={mapFullscreen}>{mapFullscreen ? "Exit full screen" : "Full screen"}</button>{game.winner && dismissedResultForMatch === matchId && <button type="button" onClick={() => setDismissedResultForMatch(null)}>Match result</button>}<button type="button" className="pause-button" disabled={!!game.winner} onClick={() => setPaused((current) => !current)}>{game.winner ? "Finished" : paused ? "Resume" : "Pause"}</button></div>
-        <div className="map-stage">{diplomacyNotice && <div className={`diplomacy-notice ${diplomacyNotice.accepted ? "accepted" : "rejected"}`} role="status" aria-live="polite"><Handshake size={22} /><div><strong>{diplomacyNotice.error ? "Proposal unavailable" : `${getPlayerName(diplomacyNotice.responder)} ${diplomacyNotice.accepted ? "accepted your alliance" : "declined your proposal"}`}</strong><span>{diplomacyNotice.reason}</span></div><button aria-label="Dismiss diplomacy notification" onClick={() => setDiplomacyNotice(null)}><X size={16} /></button></div>}<MapViewport game={game} speed={speed} paused={paused || !!game.winner} selected={selected} resetToken={mapResetToken} onTerritoryClick={handleTerritory} onTerritoryContextMenu={openTerritoryMenu} /><div className="map-command-indicator" role="status" aria-live="polite"><span>ACTIVE COMMAND</span><strong>{activeCommand}</strong>{activeKey && <kbd>{activeKey}</kbd>}</div><div className="map-players" aria-label="Players alive"><span>PLAYERS ALIVE</span>{players.map((player) => { const alive = isPlayerAlive(game, player); return <strong key={player} className={alive ? "alive" : ""}><i className="player-swatch" style={{ backgroundColor: getPlayerColor(player) }} />{player === "human" ? demoMode ? "Blue AI" : "You" : `${getPlayerName(player)} AI`}{alive ? "" : " · out"}</strong>; })}</div></div>
+        <div className="playback-bar"><span>GAME SPEED</span><div className="speed-options" role="group" aria-label="Game speed">{([1, 2, 4] as GameSpeed[]).map((option) => <button key={option} type="button" className={speed === option ? "active" : ""} aria-pressed={speed === option} onClick={() => setSpeed(option)}>×{option}</button>)}</div><small className="map-help">Wheel to zoom · Drag to move</small><button type="button" onClick={() => setMapResetToken((token) => token + 1)} aria-label="Reset map view">Reset view</button><button type="button" className="fullscreen-button" onClick={toggleMapFullscreen} aria-pressed={mapFullscreen}>{mapFullscreen ? "Exit full screen" : "Full screen"}</button>{game.winner && dismissedResultForMatch === matchId && <button type="button" onClick={() => setDismissedResultForMatch(null)}>Match result</button>}<button type="button" className="leave-match-button" onClick={() => setConfirmLeave(true)}><LogOut size={15} /> Leave match</button><button type="button" className="pause-button" disabled={!!game.winner} onClick={() => setPaused((current) => !current)}>{game.winner ? "Finished" : paused ? "Resume" : "Pause"}</button></div>
+        <div className="map-stage">{diplomacyNotice && <div className={`diplomacy-notice ${diplomacyNotice.accepted ? "accepted" : "rejected"}`} role="status" aria-live="polite"><Handshake size={22} /><div><strong>{diplomacyNotice.error ? "Proposal unavailable" : `${getPlayerName(diplomacyNotice.responder)} ${diplomacyNotice.accepted ? "accepted your alliance" : "declined your proposal"}`}</strong><span>{diplomacyNotice.reason}</span></div><button aria-label="Dismiss diplomacy notification" onClick={() => setDiplomacyNotice(null)}><X size={16} /></button></div>}<MapViewport game={game} speed={speed} paused={paused || confirmLeave || !!game.winner} selected={selected} resetToken={mapResetToken} onTerritoryClick={handleTerritory} onTerritoryContextMenu={openTerritoryMenu} /><div className="map-command-indicator" role="status" aria-live="polite"><span>ACTIVE COMMAND</span><strong>{activeCommand}</strong>{activeKey && <kbd>{activeKey}</kbd>}</div><div className="map-players" aria-label="Players alive"><span>PLAYERS ALIVE</span>{players.map((player) => { const alive = isPlayerAlive(game, player); return <strong key={player} className={alive ? "alive" : ""}><i className="player-swatch" style={{ backgroundColor: getPlayerColor(player) }} />{player === "human" ? demoMode ? "Blue AI" : "You" : `${getPlayerName(player)} AI`}{alive ? "" : " · out"}</strong>; })}</div></div>
         {managedTerritory && mapFullscreen && <div className="population-floating"><PopulationPanel game={game} territoryId={managedTerritory} onCommand={submit} onClose={() => setManagedTerritory(null)} /></div>}
         {contextMenu && <ProvinceMenu game={game} territoryId={contextMenu.territory} x={contextMenu.x} y={contextMenu.y} onManage={() => manageTerritory(contextMenu.territory)} onAlly={() => { const owner = game.territories[contextMenu.territory].owner; if (owner) { submit({ type: "ally", player: "human", with: owner }); setContextMenu(null); } }} onEndAlliance={() => { const owner = game.territories[contextMenu.territory].owner; if (owner && submit({ type: "endAlliance", player: "human", with: owner })) setContextMenu(null); }} onTrade={() => tradeWithNation(contextMenu.territory)} onClose={() => setContextMenu(null)} />}
         {showGuide ? <section className="match-guide" aria-label="Optional match guide"><div className="guide-header"><div><span>FIELD GUIDE · OPTIONAL</span><strong>{game.winner ? "Match complete" : nextGuideStep < 0 ? "Explore your own strategy" : `Suggested step ${nextGuideStep + 1} of ${guideSteps.length}`}</strong></div><button onClick={() => setShowGuide(false)} aria-label="Hide guide">Hide ×</button></div><p role="status">{game.winner ? (game.winner === "draw" ? "Draw. The frontier remains contested." : `${getPlayerName(game.winner)} controls the frontier.`) : !blueAlive && !demoMode ? "Your capital fell. You can watch the remaining bots." : hint}</p><ol>{guideSteps.map((step, index) => <li key={step.title} className={step.done ? "done" : index === nextGuideStep ? "current" : ""}><span>{step.done ? "✓" : index + 1}</span><div><strong>{step.title}</strong>{index === nextGuideStep && <small>{step.detail}</small>}</div></li>)}</ol></section> : <button className="guide-reopen" onClick={() => setShowGuide(true)}>Show field guide</button>}
-        {game.winner && dismissedResultForMatch !== matchId && <GameOverScreen game={game} demoMode={demoMode} onReplay={replayMatch} onCreate={showMatchSetup} onHome={returnHome} onViewMap={() => setDismissedResultForMatch(matchId)} />}
+        {confirmLeave && <div className="game-over-overlay"><div className="leave-match-dialog" role="dialog" aria-modal="true" aria-labelledby="leave-match-title" aria-describedby="leave-match-description" onKeyDown={(event) => { if (event.key !== "Tab") return; const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>("button"); if (event.shiftKey && document.activeElement === buttons[0]) { event.preventDefault(); buttons[buttons.length - 1].focus(); } else if (!event.shiftKey && document.activeElement === buttons[buttons.length - 1]) { event.preventDefault(); buttons[0].focus(); } }}><div className="leave-match-icon"><LogOut size={22} /></div><h2 id="leave-match-title">Leave this match?</h2><p id="leave-match-description">Your current match will be lost. You can create a new one from the main menu.</p><div className="leave-match-actions"><button type="button" autoFocus onClick={() => setConfirmLeave(false)}>Keep playing</button><button type="button" className="leave-match-confirm" onClick={returnHome}>Leave match</button></div></div></div>}
+        {game.winner && dismissedResultForMatch !== matchId && !confirmLeave && <GameOverScreen game={game} demoMode={demoMode} onReplay={replayMatch} onCreate={showMatchSetup} onHome={returnHome} onViewMap={() => setDismissedResultForMatch(matchId)} />}
       </div>
       <aside className="control-panel">
         {managedTerritory && !mapFullscreen && <PopulationPanel game={game} territoryId={managedTerritory} onCommand={submit} onClose={() => setManagedTerritory(null)} />}

@@ -251,3 +251,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, .photo-add:focu
 .diplomacy-notice strong { font-size: .85rem; }
 .diplomacy-notice span { color: var(--muted); font-size: .75rem; line-height: 1.4; }
 .diplomacy-notice button { display: grid; place-items: center; padding: 3px; background: transparent; border: 0; color: var(--muted); }
+.playback-bar .leave-match-button { display: inline-flex; align-items: center; gap: 6px; color: #cf454d; }
+.leave-match-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 24px 70px #0006; color: var(--text); width: min(420px, 100%); padding: 24px; }
+.leave-match-icon { display: grid; place-items: center; color: #cf454d; background: color-mix(in srgb, #cf454d 12%, var(--surface)); border-radius: 8px; width: 42px; height: 42px; }
+.leave-match-dialog h2 { font-size: 1.25rem; margin: 16px 0 8px; }
+.leave-match-dialog p { color: var(--muted); line-height: 1.5; font-size: .9rem; margin: 0; }
+.leave-match-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+.leave-match-actions button { background: var(--button); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 9px 14px; font-weight: 700; }
+.leave-match-actions button:hover { background: var(--button-hover); }
+.leave-match-actions .leave-match-confirm { background: #b4232d; border-color: #b4232d; color: #fff; }
+.leave-match-actions .leave-match-confirm:hover { background: #8f1c24; }
