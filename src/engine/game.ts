@@ -1,10 +1,13 @@
-import { generateFrontierMap, getTerritory, linkId, MAP_PRESETS } from "./map";
+import { CUSTOM_MAP_ID, generateFrontierMap, getTerritory, linkId, MAP_PRESETS } from "./map";
 import { allianceId, allianceRoll, areAllied, evaluateAlliance } from "./diplomacy";
 import { getMatchPlayers, getPlayerName, isPlayerAlive } from "./players";
-import { developmentRate, getSkill, populationEffects, skillLockReason } from "./population";
+import { CYCLE_SECONDS, developmentRate, getSkill, populationEffects, researchPath, skillLockReason } from "./population";
+import { terrainEffects } from "./terrain";
+import type { MapGenerationConfig } from "./types";
+import type { SkillId } from "./population";
 import type { BuildingType, CommandResult, GameCommand, GameState, PlayerId, PopulationUpgrade, TerritoryId, TerritoryState } from "./types";
 
-const PRODUCTION_INTERVAL = 3;
+const PRODUCTION_INTERVAL = CYCLE_SECONDS;
 const MAX_FORTIFICATION = 3;
 const EVENT_LIMIT = 8;
 export const BUILDING_COSTS: Record<BuildingType, number> = { housing: 4, factory: 7, railway: 5 };
@@ -49,6 +52,44 @@ function isConnectedToCapital(state: GameState, territoryId: TerritoryId, player
   return false;
 }
 
+/** Total defence of a province: garrison, fortifications, local skills and terrain. */
+export function defenceOf(state: GameState, territoryId: TerritoryId, territory: TerritoryState = state.territories[territoryId]): number {
+  return territory.units + territory.fortification * 2 + populationEffects(territory).defence + terrainEffects(getTerritory(state.map, territoryId).terrain).defence;
+}
+
+/** Learns a validated skill. `state.territories` must already be a copy. */
+function learnSkill(state: GameState, territoryId: TerritoryId, player: PlayerId, skillId: SkillId, planned = false): GameState {
+  const skill = getSkill(skillId)!;
+  const territory = state.territories[territoryId];
+  territory.skills = [...(territory.skills ?? []), skill.id];
+  territory.development = (territory.development ?? 0) - skill.points;
+  const label = getTerritory(state.map, territoryId).label;
+  return withEvent({ ...state, tradeCredits: { ...state.tradeCredits, [player]: state.tradeCredits[player] - skill.credits } }, planned ? `${label} completed planned research: ${skill.name}.` : `${label} adopted ${skill.name}.`);
+}
+
+/** Takes the next affordable step towards a province's research goal. */
+function progressResearchGoal(state: GameState, territoryId: TerritoryId): GameState {
+  const territory = state.territories[territoryId];
+  const goal = territory.researchGoal;
+  if (!goal || !territory.owner) return state;
+  const { path, problem } = researchPath(territory, goal);
+  if (problem || path.length === 0) {
+    delete territory.researchGoal;
+    return problem ? withEvent(state, `${getTerritory(state.map, territoryId).label} dropped its research plan: ${problem}.`) : state;
+  }
+  const step = getSkill(path[0])!;
+  if (skillLockReason(territory, step, state.tradeCredits[territory.owner])) return state;
+  const next = learnSkill(state, territoryId, territory.owner, step.id, true);
+  if (path.length === 1) delete next.territories[territoryId].researchGoal;
+  return next;
+}
+
+function progressGoalAfterManualLearn(state: GameState, territoryId: TerritoryId): GameState {
+  const territory = state.territories[territoryId];
+  if (territory.researchGoal && territory.skills?.includes(territory.researchGoal)) delete territory.researchGoal;
+  return state;
+}
+
 function controlScore(state: GameState, player: PlayerId): number {
   return Object.values(state.territories).reduce((total, territory) => total + (territory.owner === player ? 1 + territory.fortification : 0), 0);
 }
@@ -57,16 +98,18 @@ export function getPopulation(state: GameState, player: PlayerId): number {
   return Object.values(state.territories).reduce((total, territory) => total + (territory.owner === player ? territory.population : 0), 0);
 }
 
-export function createInitialGame(maxTicks = 300, seed = 27, presetId = "crownlands", botCount = 1): GameState {
-  const map = generateFrontierMap(seed, presetId, botCount);
+export function createInitialGame(maxTicks = 300, seed = 27, presetId = "crownlands", botCount = 1, generation?: MapGenerationConfig): GameState {
+  const map = generateFrontierMap(seed, presetId, botCount, generation);
   const territories = Object.fromEntries(map.territories.map((territory) => [territory.id, { owner: territory.capitalFor ?? null, units: territory.capitalFor ? 12 : 2, population: territory.capitalFor ? 220 : 40, fortification: territory.capitalFor ? 1 : 0, buildings: territory.capitalFor ? ["housing"] : [], upgrades: {} }])) as Record<TerritoryId, TerritoryState>;
   const tradeCredits = Object.fromEntries(map.territories.filter((territory) => territory.capitalFor).map((territory) => [territory.capitalFor, 0])) as Record<PlayerId, number>;
   return { tick: 0, maxTicks, map, territories, roadLinks: [], suppliedLinks: [], alliances: [], tradeRoutes: [], invasions: [], tradeCredits, events: [{ tick: 0, message: "Secure your capital, then claim the frontier." }], winner: null };
 }
 
 export function createRematch(state: GameState): GameState {
+  const bots = getMatchPlayers(state).length - 1;
+  if (state.map.id.startsWith(`${CUSTOM_MAP_ID}-`)) return createInitialGame(state.maxTicks, state.map.seed, CUSTOM_MAP_ID, bots, state.map.generation);
   const preset = MAP_PRESETS.find((candidate) => state.map.id.startsWith(`${candidate.id}-`)) ?? MAP_PRESETS[0];
-  return createInitialGame(state.maxTicks, state.map.seed, preset.id, getMatchPlayers(state).length - 1);
+  return createInitialGame(state.maxTicks, state.map.seed, preset.id, bots);
 }
 
 export function applyCommand(state: GameState, command: GameCommand): CommandResult {
@@ -97,9 +140,26 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     if (!skill) return { ok: false, state, reason: "Unknown population skill." };
     const reason = skillLockReason(territory, skill, state.tradeCredits[command.player]);
     if (reason) return { ok: false, state, reason };
-    territory.skills = [...(territory.skills ?? []), skill.id];
-    territory.development = (territory.development ?? 0) - skill.points;
-    return { ok: true, state: withEvent({ ...state, territories, tradeCredits: { ...state.tradeCredits, [command.player]: state.tradeCredits[command.player] - skill.credits } }, `${getTerritory(state.map, command.territory).label} adopted ${skill.name}.`) };
+    const learned = learnSkill({ ...state, territories }, command.territory, command.player, skill.id);
+    // Learning the planned skill by hand completes the plan; any other step keeps it.
+    return { ok: true, state: territory.researchGoal ? progressGoalAfterManualLearn(learned, command.territory) : learned };
+  }
+  if (command.type === "planResearch") {
+    const territory = territories[command.territory];
+    if (!territory || territory.owner !== command.player) return { ok: false, state, reason: "Plan research in a province you control." };
+    const label = getTerritory(state.map, command.territory).label;
+    if (command.skill === null) {
+      if (!territory.researchGoal) return { ok: false, state, reason: "This province has no research plan." };
+      delete territory.researchGoal;
+      return { ok: true, state: withEvent({ ...state, territories }, `${label} cancelled its research plan.`) };
+    }
+    const skill = getSkill(command.skill);
+    if (!skill) return { ok: false, state, reason: "Unknown population skill." };
+    if (territory.skills?.includes(skill.id)) return { ok: false, state, reason: "Already learned" };
+    const { problem } = researchPath(territory, skill.id);
+    if (problem) return { ok: false, state, reason: `Cannot plan ${skill.name}: ${problem}.` };
+    territory.researchGoal = skill.id;
+    return { ok: true, state: progressResearchGoal(withEvent({ ...state, territories }, `${label} plans to research ${skill.name}.`), command.territory) };
   }
   if (command.type === "upgrade") {
     const territory = territories[command.territory];
@@ -160,7 +220,7 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
   source.units -= attackers;
   const byRoad = !bySea && target.owner === command.player;
   const roadSupport = !bySea && origin.neighbours.some((neighbour) => territories[neighbour].owner === command.player);
-  const defence = target.units + target.fortification * 2 + populationEffects(target).defence;
+  const defence = defenceOf(state, command.to, target);
   const movement = { from: command.from, to: command.to, player: command.player, units: attackers, bySea, byRoad };
   if (bySea) {
     const invasion = { from: command.from, to: command.to, player: command.player, units: attackers, attackBonus: populationEffects(source).attack, arrivalTick: state.tick + 1 };
@@ -172,7 +232,7 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
   }
   const attackPower = attackers + (roadSupport ? 1 : 0) + populationEffects(source).attack;
   if (attackPower > defence) {
-    const previousOwner = target.owner; target.owner = command.player; target.units = Math.max(1, attackers + (roadSupport ? 1 : 0) - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
+    const previousOwner = target.owner; target.owner = command.player; target.units = Math.max(1, attackers + (roadSupport ? 1 : 0) - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0; delete target.researchGoal;
     const message = previousOwner ? `${command.player} captured ${getTerritory(state.map, command.to).label}.` : `${command.player} claimed ${getTerritory(state.map, command.to).label}.`;
     return { ok: true, state: withEvent(withRoad({ ...state, territories }, command.from, command.to), message, movement, { territory: command.to, from: command.from, player: command.player, previousOwner }) };
   }
@@ -187,8 +247,8 @@ export function advanceGame(state: GameState): GameState {
     const territory = next.territories[definition.id];
     const effects = populationEffects(territory);
     if (territory.owner && isPlayerAlive(next, territory.owner) && (effects.autonomous || isConnectedToCapital(next, definition.id, territory.owner))) {
-      territory.development = (territory.development ?? 0) + developmentRate(territory);
-      territory.population += effects.growth;
+      territory.development = (territory.development ?? 0) + developmentRate(territory, definition.terrain);
+      territory.population += effects.growth + terrainEffects(definition.terrain).growth;
       territory.units += effects.units;
       if (next.tick % 9 === 0) {
         next.tradeCredits[territory.owner] += effects.income;
@@ -198,6 +258,7 @@ export function advanceGame(state: GameState): GameState {
       const supplyBonus = definition.neighbours.some((neighbour) => next.territories[neighbour].owner === territory.owner && next.suppliedLinks.includes(linkId(definition.id, neighbour))) ? 1 : 0;
       territory.units += 1 + supplyBonus + (territory.buildings.includes("factory") ? 1 : 0) + (territory.upgrades.industry ?? 0);
       territory.fortification = Math.min(MAX_FORTIFICATION, territory.fortification + ((territory.upgrades.militia ?? 0) >= 2 && next.tick % 9 === 0 ? 1 : 0));
+      if (territory.researchGoal) next = progressResearchGoal(next, definition.id);
     }
   }
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const route of next.tradeRoutes) {
@@ -223,11 +284,11 @@ export function advanceGame(state: GameState): GameState {
       continue;
     }
     if (target.owner === invasion.player) { target.units += invasion.units; next = withEvent(next, `${invasion.player} reinforced ${getTerritory(next.map, invasion.to).label} by sea.`); continue; }
-    const defence = target.units + target.fortification * 2 + populationEffects(target).defence;
+    const defence = defenceOf(next, invasion.to, target);
     const attackPower = invasion.units + (invasion.attackBonus ?? 0);
     if (attackPower > defence) {
       const previousOwner = target.owner;
-      target.owner = invasion.player; target.units = Math.max(1, invasion.units - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0;
+      target.owner = invasion.player; target.units = Math.max(1, invasion.units - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0; delete target.researchGoal;
       next = withEvent(next, `${invasion.player} landed and captured ${getTerritory(next.map, invasion.to).label}.`, undefined, { territory: invasion.to, from: invasion.from, player: invasion.player, previousOwner });
     } else {
       target.units = Math.min(target.units, Math.max(1, defence - attackPower));

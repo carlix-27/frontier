@@ -31,6 +31,13 @@ This document mirrors the initial GitHub issue plan. Issues are deliberately ord
 | P3 | `feat(profile): add account identity and cosmetic inventory` | `type:feature`, `area:profile` | Cosmetics attach to an account, not competitive power. |
 | P3 | `feat(monetization): add cosmetic-only supporter packs` | `type:feature`, `area:commerce` | Optional purchases never alter match balance. |
 
+## Progress notes
+
+- `balance: define initial economy and bot benchmark scenarios` — initial version: `src/bots/benchmark.ts` and `npm run benchmark` play five repeatable bot-versus-bot scenarios. Win-rate targets are still to be agreed.
+- `docs: publish local setup, rules and contribution guide` — `CONTRIBUTING.md`, plus rules in `docs/map-generation.md` and `docs/population-development.md`.
+- Map generation v2: custom worlds in the setup screen, terrain, names, scattered layouts, fairer capitals and sea lanes through open water.
+- Province development: research plans, a visual tree with requirement chips and time estimates, role-based bot research.
+
 ## Economy decision
 
 The local MVP has **no currency, premium currency, ads, store, or payment flow**. These mechanics would obscure whether the match itself is fun.

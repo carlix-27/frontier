@@ -1,4 +1,8 @@
+import { terrainEffects, type Terrain } from "./terrain";
 import type { TerritoryState } from "./types";
+
+/** Game seconds between production cycles. */
+export const CYCLE_SECONDS = 3;
 
 export type SkillBranch = "economy" | "civil" | "politics" | "defence";
 export type SkillId = "market" | "guilds" | "docks" | "bank" | "freeport" | "industrial-hub" | "sanitation" | "granaries" | "schools" | "hospital" | "metropolis" | "university" | "council" | "census" | "public-works" | "charter" | "autonomy" | "cooperative" | "watch" | "drills" | "shelters" | "academy" | "bastion" | "expedition";
@@ -50,7 +54,8 @@ export function populationEffects(territory: TerritoryState): PopulationEffects 
   for (const id of territory.skills ?? []) for (const [key, value] of Object.entries(getSkill(id)?.effects ?? {})) effects[key as keyof PopulationEffects] += value;
   return effects;
 }
-export const developmentRate = (territory: TerritoryState) => 1 + Math.floor(territory.population / 150) + populationEffects(territory).research;
+/** Development points a producing province earns each cycle, including its terrain. */
+export const developmentRate = (territory: TerritoryState, terrain?: Terrain) => 1 + Math.floor(territory.population / 150) + populationEffects(territory).research + terrainEffects(terrain).research;
 export function skillLockReason(territory: TerritoryState, skill: PopulationSkill, credits: number): string | null {
   const learned = territory.skills ?? [];
   if (learned.includes(skill.id)) return "Already learned";
@@ -62,4 +67,60 @@ export function skillLockReason(territory: TerritoryState, skill: PopulationSkil
   if ((territory.development ?? 0) < skill.points) return `Needs ${skill.points} local development points`;
   if (credits < skill.credits) return `Needs ${skill.credits} trade credits`;
   return null;
+}
+
+export interface SkillRequirement { kind: "prerequisite" | "exclusive" | "population" | "points" | "credits"; label: string; met: boolean }
+/** Every requirement of a skill with its current status, for clear feedback in the interface. */
+export function skillRequirements(territory: TerritoryState, skill: PopulationSkill, credits: number): SkillRequirement[] {
+  const learned = territory.skills ?? [];
+  return [
+    ...skill.requires.map(id => ({ kind: "prerequisite" as const, label: getSkill(id)!.name, met: learned.includes(id) })),
+    ...(skill.excludes ? [{ kind: "exclusive" as const, label: `Not ${getSkill(skill.excludes)!.name}`, met: !learned.includes(skill.excludes) }] : []),
+    { kind: "population", label: `${skill.population} citizens`, met: territory.population >= skill.population },
+    { kind: "points", label: `${skill.points} development`, met: (territory.development ?? 0) >= skill.points },
+    ...(skill.credits ? [{ kind: "credits" as const, label: `${skill.credits} credits`, met: credits >= skill.credits }] : []),
+  ];
+}
+
+/**
+ * The skills still missing to reach `target`, in a valid learning order
+ * (prerequisites first), and why the plan is impossible, if it is.
+ */
+export function researchPath(territory: TerritoryState, target: SkillId): { path: SkillId[]; problem: string | null } {
+  const learned = new Set(territory.skills ?? []);
+  const path: SkillId[] = [];
+  const visit = (id: SkillId) => {
+    if (learned.has(id) || path.includes(id)) return;
+    getSkill(id)!.requires.forEach(visit);
+    path.push(id);
+  };
+  visit(target);
+  path.sort((a, b) => getSkill(a)!.tier - getSkill(b)!.tier);
+  const planned = new Set([...learned, ...path]);
+  for (const id of path) {
+    const excluded = getSkill(id)!.excludes;
+    if (excluded && planned.has(excluded)) return { path, problem: `${getSkill(id)!.name} is exclusive with ${getSkill(excluded)!.name}` };
+  }
+  if (learned.size + path.length > MAX_POPULATION_SKILLS) return { path, problem: `needs ${path.length} more choices, only ${MAX_POPULATION_SKILLS - learned.size} left` };
+  return { path, problem: null };
+}
+
+export interface ResearchEstimate {
+  path: SkillId[];
+  /** Development points, credits and citizens still missing for the whole path. */
+  pointsShort: number;
+  creditsShort: number;
+  populationShort: number;
+  /** Production cycles until the province has earned enough points at its current rate. */
+  cycles: number;
+  seconds: number;
+}
+export function researchEstimate(territory: TerritoryState, target: SkillId, credits: number, rate: number): ResearchEstimate {
+  const { path } = researchPath(territory, target);
+  const skills = path.map(id => getSkill(id)!);
+  const pointsShort = Math.max(0, skills.reduce((sum, skill) => sum + skill.points, 0) - (territory.development ?? 0));
+  const creditsShort = Math.max(0, skills.reduce((sum, skill) => sum + skill.credits, 0) - credits);
+  const populationShort = Math.max(0, ...skills.map(skill => skill.population - territory.population));
+  const cycles = rate > 0 ? Math.ceil(pointsShort / rate) : Infinity;
+  return { path, pointsShort, creditsShort, populationShort, cycles, seconds: cycles * CYCLE_SECONDS };
 }

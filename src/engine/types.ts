@@ -1,4 +1,5 @@
 import type { SkillId } from "./population";
+import type { Terrain } from "./terrain";
 export type PlayerId = "human" | "bot" | `bot-${number}`;
 export type BuildingType = "housing" | "factory" | "railway";
 export type PopulationUpgrade = "housing" | "industry" | "militia";
@@ -16,6 +17,27 @@ export interface TerritoryDefinition {
   island?: boolean;
   landmassId?: string;
   capitalFor?: PlayerId;
+  /** Generated worlds only; classic maps have no terrain. */
+  terrain?: Terrain;
+}
+
+export type MapLayout = "grid" | "columns" | "rows" | "ring" | "scatter";
+/** Counts are exact: provinces belong to countries; each small island adds one province. */
+export interface MapGenerationConfig {
+  landmasses: number;
+  islands: number;
+  provinces: number;
+  layout: MapLayout;
+  /** 0 = gentle coasts, 1 = jagged coasts with peninsulas and bays. */
+  roughness: number;
+}
+
+export interface CountryDefinition {
+  id: string;
+  name: string;
+  /** Label anchor, just above the country's coast. */
+  x: number;
+  y: number;
 }
 
 export interface MapDefinition {
@@ -23,6 +45,9 @@ export interface MapDefinition {
   seed: number;
   landPath: string;
   landmassCount?: number;
+  /** Present on generated worlds so a rematch can rebuild the exact same map. */
+  generation?: MapGenerationConfig;
+  countries?: CountryDefinition[];
   territories: TerritoryDefinition[];
 }
 
@@ -35,6 +60,8 @@ export interface TerritoryState {
   upgrades: Partial<Record<PopulationUpgrade, number>>;
   skills?: SkillId[];
   development?: number;
+  /** A planned skill. The province learns the missing path automatically when it can afford each step. */
+  researchGoal?: SkillId;
 }
 
 export interface GameEvent {
@@ -138,7 +165,11 @@ export interface UpgradeCommand {
   upgrade: PopulationUpgrade;
 }
 
-export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand | AllianceCommand | BuildCommand | UpgradeCommand | { type: "research"; player: PlayerId; territory: TerritoryId; skill: SkillId };
+export type GameCommand = ExpandCommand | FortifyCommand | SupplyCommand | TradeCommand | AllianceCommand | BuildCommand | UpgradeCommand | ResearchCommand | PlanResearchCommand;
+
+export interface ResearchCommand { type: "research"; player: PlayerId; territory: TerritoryId; skill: SkillId }
+/** Set (or clear, with `skill: null`) a province's research goal. */
+export interface PlanResearchCommand { type: "planResearch"; player: PlayerId; territory: TerritoryId; skill: SkillId | null }
 
 export type CommandResult =
   | { ok: true; state: GameState }

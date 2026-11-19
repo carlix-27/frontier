@@ -1,18 +1,19 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, Factory, Handshake, House, LogOut, Shield, Ship, Swords, TrainFront, X, type LucideIcon } from "lucide-react";
 import { chooseBotCommand, type BotDifficulty } from "./bots/basicBot";
 import { GameMap } from "./components/GameMap";
 import { GameOverScreen } from "./components/GameOverScreen";
 import { MapViewport } from "./components/MapViewport";
 import { MapPreview } from "./components/MapPreview";
+import { CustomWorldControls } from "./components/CustomWorldControls";
 import { PopulationPanel } from "./components/PopulationPanel";
 import { ProfilePanel } from "./components/ProfilePanel";
 import { ProvinceMenu } from "./components/ProvinceMenu";
 import { SiteHeader } from "./components/SiteHeader";
 import { advanceGame, applyCommand, buildingCost, BUILDING_COSTS, BUILDING_NAMES, createInitialGame, createRematch, getControlScore, getPopulation } from "./engine/game";
-import { getMapPreset, getTerritory, MAP_PRESETS } from "./engine/map";
+import { CUSTOM_MAP_ID, DEFAULT_CUSTOM_MAP, generateFrontierMap, getMapName, getMapPreset, getTerritory, MAP_PRESETS } from "./engine/map";
 import { getMatchPlayers, getPlayerColor, getPlayerName, isPlayerAlive, MAX_BOTS } from "./engine/players";
-import type { BuildingType, GameCommand, PlayerId, TerritoryId } from "./engine/types";
+import type { BuildingType, GameCommand, MapGenerationConfig, PlayerId, TerritoryId } from "./engine/types";
 import { loadProfile, saveProfile } from "./profile";
 
 type ActionMode = "expand" | "fortify" | "supply" | "trade";
@@ -34,8 +35,12 @@ const buildingCards: Array<{ building: BuildingType; icon: ReactNode; descriptio
 
 function defaultAttackForce(units: number): number { return Math.max(1, Math.min(3, units - 1)); }
 
+/** The home page shows a live bot match on a generated world. */
+const HOME_PRESET = getMapPreset("four-kingdoms");
+const createHomeGame = () => createInitialGame(300, HOME_PRESET.seed, HOME_PRESET.id);
+
 export default function App() {
-  const [game, setGame] = useState(() => createInitialGame());
+  const [game, setGame] = useState(createHomeGame);
   const [screen, setScreen] = useState<"home" | "setup" | "lobby" | "game" | "profile">("home");
   const [profileReturnScreen, setProfileReturnScreen] = useState<"home" | "game">("home");
   const [profile, setProfile] = useState(loadProfile);
@@ -45,6 +50,10 @@ export default function App() {
   const [trackMatch, setTrackMatch] = useState(false);
   const recordedMatchRef = useRef(-1);
   const [mapChoice, setMapChoice] = useState<string>(MAP_PRESETS[0].id);
+  const [customConfig, setCustomConfig] = useState<MapGenerationConfig>(DEFAULT_CUSTOM_MAP);
+  const [customSeed, setCustomSeed] = useState(2026);
+  const deferredCustomConfig = useDeferredValue(customConfig);
+  const deferredCustomSeed = useDeferredValue(customSeed);
   const [duration, setDuration] = useState(300);
   const [managedTerritory, setManagedTerritory] = useState<TerritoryId | null>(null);
   const [contextMenu, setContextMenu] = useState<{ territory: TerritoryId; x: number; y: number } | null>(null);
@@ -79,7 +88,7 @@ export default function App() {
     if (!game.winner || !trackMatch || matchId === recordedMatchRef.current) return;
     recordedMatchRef.current = matchId;
     const result: "win" | "loss" | "draw" = game.winner === "draw" ? "draw" : game.winner === "human" ? "win" : "loss";
-    const map = MAP_PRESETS.find((preset) => game.map.id.startsWith(`${preset.id}-`))?.name ?? "Unknown map";
+    const map = getMapName(game.map);
     setProfile((current) => ({ ...current, history: [{ id: Date.now(), result, map, seconds: game.tick, playedAt: new Date().toISOString() }, ...current.history].slice(0, 20) }));
   }, [game.winner, game.tick, game.map.id, matchId, trackMatch]);
 
@@ -116,7 +125,7 @@ export default function App() {
 
   useEffect(() => {
     if (screen !== "home" || !game.winner) return;
-    const timer = window.setTimeout(() => setGame(createInitialGame()), 3500);
+    const timer = window.setTimeout(() => setGame(createHomeGame()), 3500);
     return () => window.clearTimeout(timer);
   }, [game.winner, screen]);
 
@@ -232,10 +241,28 @@ export default function App() {
     if (submit({ type: "trade", player: "human", from: source.id, to: target })) setContextMenu(null);
   }
 
+  const customSelected = mapChoice === CUSTOM_MAP_ID;
+  const setupPreview = useMemo(() => {
+    if (screen !== "setup") return null;
+    const preset = getMapPreset(mapChoice);
+    const name = customSelected ? "Custom world" : preset.name;
+    const description = customSelected ? `Seed ${deferredCustomSeed} · ${deferredCustomConfig.layout} layout` : preset.description;
+    try {
+      const map = customSelected ? generateFrontierMap(deferredCustomSeed, CUSTOM_MAP_ID, botCount, deferredCustomConfig) : generateFrontierMap(preset.seed, preset.id, botCount);
+      return { map, name, description, error: null };
+    } catch (error) {
+      return { map: null, name, description, error: error instanceof Error ? error.message.replace("Invalid map configuration: ", "") : "This world cannot be generated." };
+    }
+  }, [screen, mapChoice, customSelected, deferredCustomConfig, deferredCustomSeed, botCount]);
+  const setupBlocked = screen === "setup" && (!setupPreview?.map || (customSelected && (deferredCustomConfig !== customConfig || deferredCustomSeed !== customSeed)));
+
   function startMatch(forceDemo = demoMode) {
     const preset = getMapPreset(mapChoice);
+    let next;
+    try { next = customSelected ? createInitialGame(duration, customSeed, CUSTOM_MAP_ID, botCount, customConfig) : createInitialGame(duration, preset.seed, preset.id, botCount); }
+    catch (error) { setHint(error instanceof Error ? error.message : "This world cannot be generated."); return; }
     setMatchId((id) => id + 1); setTrackMatch(!forceDemo);
-    setDemoMode(forceDemo); setGame(createInitialGame(duration, preset.seed, preset.id, botCount)); setSelected(null); setAttackUnits(null); setBuildingToPlace(null); setManagedTerritory(null); setContextMenu(null); setPaused(false); setScreen("game");
+    setDemoMode(forceDemo); setGame(next); setSelected(null); setAttackUnits(null); setBuildingToPlace(null); setManagedTerritory(null); setContextMenu(null); setPaused(false); setScreen("game");
     setHint(forceDemo ? `Blue and ${botCount} bot commanders are fighting. Right-click another nation for diplomacy.` : "Select a friendly region to begin. Right-click your land for population or another nation for diplomacy.");
   }
 
@@ -272,7 +299,7 @@ export default function App() {
     leaveFullscreen();
     setConfirmLeave(false); setPaused(false); setSelected(null); setAttackUnits(null); setBuildingToPlace(null); setManagedTerritory(null); setContextMenu(null);
     setTrackMatch(false);
-    setGame(createInitialGame()); setScreen("home");
+    setGame(createHomeGame()); setScreen("home");
   }
 
   const remaining = Math.max(0, game.maxTicks - game.tick);
@@ -294,7 +321,7 @@ export default function App() {
   const siteHeader = <SiteHeader theme={theme} profile={profile} onThemeChange={() => setTheme((current) => current === "dark" ? "light" : "dark")} onHome={returnHome} onCreate={showMatchSetup} onProfile={openProfile} />;
   if (screen === "profile") return <main className="app-shell profile-shell">{siteHeader}<ProfilePanel profile={profile} onChange={setProfile} onClose={() => setScreen(profileReturnScreen)} /></main>;
   if (screen !== "game") return <main className="app-shell lobby-shell">{siteHeader}<div className="home-hero"><p className="eyebrow">FRONTIER · LOCAL PROTOTYPE</p><h1>Frontier</h1><p className="subtitle">Create a continent. Command its future.</p></div>
-    {screen === "home" ? <><button type="button" className="live-preview" onClick={enterPreview} aria-label="Open the live local bot match"><span className="live-preview-map"><GameMap game={game} speed={1} paused={false} selected={null} onTerritoryClick={() => {}} /></span><span className="live-preview-info"><span className="live-preview-label"><i /> LIVE LOCAL MATCH</span><strong>{game.winner ? "Match finished" : "A frontier is taking shape"}</strong><span>Blue AI {getControlScore(game, "human")} · Red AI {getControlScore(game, "bot")}</span><span>{game.winner ? "Open the final map" : `Match time ${String(Math.floor(game.tick / 60)).padStart(2, "0")}:${String(game.tick % 60).padStart(2, "0")}`}</span><b>Watch this match →</b></span></button><section className="lobby-card"><h2>Choose your next match</h2><p>Play against bots on one of {MAP_PRESETS.length} fictional worlds.</p><div className="lobby-actions"><button className="primary" onClick={() => setScreen("setup")}>Create match</button><button onClick={() => setScreen("lobby")}>Join local lobby</button></div><small>Online lobbies are planned; this prototype runs locally in your browser.</small></section></> : screen === "lobby" ? <section className="lobby-card"><h2>Local lobby</h2><p>A practice table is ready with the selected bot commanders. Join to watch their match.</p><div className="lobby-actions"><button onClick={returnHome}>Back</button><button className="primary" onClick={() => startMatch(true)}>Join practice match</button></div></section> : <section className="lobby-card"><h2>Create match</h2><p>Choose a map and rules before the clock starts.</p><div className="map-options">{MAP_PRESETS.map((preset) => <button key={preset.id} className={mapChoice === preset.id ? "map-option active" : "map-option"} onClick={() => setMapChoice(preset.id)}><strong>{preset.name}</strong><span>{preset.description}</span></button>)}</div><div className="setup-controls"><div className="match-options"><label>Duration<select value={duration} onChange={(event) => setDuration(Number(event.target.value))}><option value={180}>3 minutes</option><option value={300}>5 minutes</option><option value={600}>10 minutes</option></select></label><label>Bot difficulty<select value={difficulty} onChange={(event) => setDifficulty(event.target.value as BotDifficulty)}><option value="easy">Easy</option><option value="normal">Normal</option><option value="expert">Expert</option></select></label><label>Opponents<select aria-label="Number of bots" value={botCount} onChange={(event) => setBotCount(Number(event.target.value))}>{Array.from({ length: MAX_BOTS }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1} {index === 0 ? "bot" : "bots"}</option>)}</select></label><label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => setDemoMode(event.target.checked)} />Blue auto-play (demo)</label></div><div className="lobby-actions setup-actions"><button onClick={returnHome}>Back</button><button className="primary" onClick={() => startMatch()}>Start match</button></div></div><MapPreview presetId={mapChoice} botCount={botCount} /></section>}
+    {screen === "home" ? <><button type="button" className="live-preview" onClick={enterPreview} aria-label="Open the live local bot match"><span className="live-preview-map"><GameMap game={game} speed={1} paused={false} selected={null} onTerritoryClick={() => {}} /></span><span className="live-preview-info"><span className="live-preview-label"><i /> LIVE LOCAL MATCH</span><strong>{game.winner ? "Match finished" : "A frontier is taking shape"}</strong><span>Blue AI {getControlScore(game, "human")} · Red AI {getControlScore(game, "bot")}</span><span>{game.winner ? "Open the final map" : `Match time ${String(Math.floor(game.tick / 60)).padStart(2, "0")}:${String(game.tick % 60).padStart(2, "0")}`}</span><b>Watch this match →</b></span></button><section className="lobby-card"><h2>Choose your next match</h2><p>Play against bots on one of {MAP_PRESETS.length} fictional worlds.</p><div className="lobby-actions"><button className="primary" onClick={() => setScreen("setup")}>Create match</button><button onClick={() => setScreen("lobby")}>Join local lobby</button></div><small>Online lobbies are planned; this prototype runs locally in your browser.</small></section></> : screen === "lobby" ? <section className="lobby-card"><h2>Local lobby</h2><p>A practice table is ready with the selected bot commanders. Join to watch their match.</p><div className="lobby-actions"><button onClick={returnHome}>Back</button><button className="primary" onClick={() => startMatch(true)}>Join practice match</button></div></section> : <section className="lobby-card"><h2>Create match</h2><p>Choose a map and rules before the clock starts.</p><div className="map-options">{MAP_PRESETS.map((preset) => <button key={preset.id} className={mapChoice === preset.id ? "map-option active" : "map-option"} onClick={() => setMapChoice(preset.id)}><strong>{preset.name}</strong><span>{preset.description}</span></button>)}<button className={customSelected ? "map-option custom active" : "map-option custom"} onClick={() => setMapChoice(CUSTOM_MAP_ID)}><strong>Custom world</strong><span>Design countries, islands, coasts and seed</span></button></div>{customSelected && <CustomWorldControls config={customConfig} seed={customSeed} players={botCount + 1} onChange={setCustomConfig} onSeedChange={setCustomSeed} />}<div className="setup-controls"><div className="match-options"><label>Duration<select value={duration} onChange={(event) => setDuration(Number(event.target.value))}><option value={180}>3 minutes</option><option value={300}>5 minutes</option><option value={600}>10 minutes</option></select></label><label>Bot difficulty<select value={difficulty} onChange={(event) => setDifficulty(event.target.value as BotDifficulty)}><option value="easy">Easy</option><option value="normal">Normal</option><option value="expert">Expert</option></select></label><label>Opponents<select aria-label="Number of bots" value={botCount} onChange={(event) => setBotCount(Number(event.target.value))}>{Array.from({ length: MAX_BOTS }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1} {index === 0 ? "bot" : "bots"}</option>)}</select></label><label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => setDemoMode(event.target.checked)} />Blue auto-play (demo)</label></div><div className="lobby-actions setup-actions"><button onClick={returnHome}>Back</button><button className="primary" disabled={setupBlocked} onClick={() => startMatch()}>Start match</button></div></div>{setupPreview && <MapPreview map={setupPreview.map} name={setupPreview.name} description={setupPreview.description} error={setupPreview.error} />}</section>}
   </main>;
   return <main className="app-shell">{siteHeader}
     <header className="match-header">

@@ -16,15 +16,16 @@ Then open the local URL printed by Vite. Use the map to select territories and i
 ## Current prototype
 
 - One player versus one deterministic bot, or a local demonstration with two bots.
-- Fifteen deterministic fictional maps: five classic continents and ten varied worlds with multiple countries separated by water, plus conquerable islands.
-- Configurable [map generation](docs/map-generation.md): country, province and island counts, layout, roughness and seed.
+- Fifteen deterministic fictional maps: five classic continents and ten generated worlds with named countries, terrain, archipelagos and sea lanes.
+- A **Custom world** generator in the match setup: countries, provinces, islands, layout (including scattered countries), coast roughness and seed, with a live preview. See [map generation](docs/map-generation.md).
+- Terrain on generated worlds: plains grow faster, forests and hills defend, mountains are natural fortresses.
 - Expand, fortify, supply, and trade commands, plus province development.
-- [Province skill trees](docs/population-development.md): 24 local economic, civil, political and defence skills, population-driven development points and exclusive specializations.
+- [Province skill trees](docs/population-development.md): 24 local economic, civil, political and defence skills, population-driven development points, exclusive specializations, and research plans that learn a whole path automatically.
 - Maritime invasions with visible ships and supply connections back to the capital.
 - Live match preview, adjustable game speed, and a fullscreen map with zoom and drag navigation.
 - GitHub-inspired interface with Lucide icons, persistent light/dark themes, and a local player profile with photos and recent match results.
 - Capital capture or control score win condition.
-- Easy, normal, and expert bot behaviours.
+- Easy, normal, and expert bot behaviours, with role-based province specialization and a headless benchmark (`npm run benchmark`).
 - Pure TypeScript game rules and unit tests.
 
 ## Commands
@@ -33,6 +34,16 @@ Then open the local URL printed by Vite. Use the map to select territories and i
 - **Fortify:** select a friendly territory and spend units to increase its defence.
 - **Supply:** select two adjacent friendly land territories to improve their road and increase production. Dirt roads appear automatically between neighboring allied provinces and give attacks from connected towns +1 combat power. Owned islands receive production while connected to your capital through owned provinces and sea links.
 - **Trade:** connect two friendly territories to earn credits for buildings and population upgrades.
+
+## Development
+
+```bash
+npm test           # engine, map and bot tests
+npm run build      # type check and production build
+npm run benchmark  # bot-versus-bot balance scenarios
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and project conventions.
 
 ## Project direction
 

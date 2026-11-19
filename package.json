@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "benchmark": "vitest run --mode benchmark --silent=false src/bots/benchmark.test.ts"
   },
   "devDependencies": {
     "@types/d3-delaunay": "^6.0.4",

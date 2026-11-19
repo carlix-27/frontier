@@ -1,10 +1,14 @@
 import { Delaunay } from "d3-delaunay";
-import type { MapDefinition, PlayerId, TerritoryDefinition, TerritoryId } from "./types";
+import type { MapDefinition, MapGenerationConfig, PlayerId, TerritoryDefinition, TerritoryId } from "./types";
 import { getBotIds } from "./players";
 import { generateMap, type MapPreset } from "./mapGenerator";
 import { GENERATED_MAP_PRESETS } from "./mapPresets";
-export { generateMap } from "./mapGenerator";
-export type { MapGenerationConfig } from "./mapGenerator";
+export { generateMap, validateMapConfig, MAP_LAYOUTS, MAP_LIMITS } from "./mapGenerator";
+export type { MapGenerationConfig, MapLayout } from "./mapGenerator";
+
+/** Preset id used for worlds configured in the match setup. */
+export const CUSTOM_MAP_ID = "custom";
+export const DEFAULT_CUSTOM_MAP: MapGenerationConfig = { landmasses: 4, provinces: 40, islands: 12, layout: "scatter", roughness: .75 };
 
 const MAP_WIDTH = 900;
 const MAP_HEIGHT = 600;
@@ -77,6 +81,12 @@ export const MAP_PRESETS: readonly MapPreset[] = [
 ] as const;
 
 export function getMapPreset(id: string) { return MAP_PRESETS.find((preset) => preset.id === id) ?? MAP_PRESETS[0]; }
+
+/** Human-readable map name for a match, including custom worlds. */
+export function getMapName(map: MapDefinition): string {
+  if (map.id.startsWith(`${CUSTOM_MAP_ID}-`)) return "Custom world";
+  return MAP_PRESETS.find((preset) => map.id.startsWith(`${preset.id}-`))?.name ?? "Unknown map";
+}
 
 function coastlineFor(presetId: string): Point[] {
   if (presetId === "crownlands") return coastline;
@@ -166,7 +176,8 @@ function chooseCapitals(points: Point[], botCount: number): Map<number, PlayerId
   return capitals;
 }
 
-export function generateFrontierMap(seed = 27, presetId = "crownlands", botCount = 1): MapDefinition {
+export function generateFrontierMap(seed = 27, presetId = "crownlands", botCount = 1, generation?: MapGenerationConfig): MapDefinition {
+  if (presetId === CUSTOM_MAP_ID) return generateMap(generation ?? DEFAULT_CUSTOM_MAP, seed, botCount, CUSTOM_MAP_ID);
   const preset = getMapPreset(presetId);
   if (preset.generation) return generateMap(preset.generation, seed, botCount, preset.id);
   const coast = coastlineFor(presetId);

@@ -4,5 +4,6 @@ import App from "./App";
 import "./style.css";
 import "./animations.css";
 import "./theme.css";
+import "./world.css";
 
 createRoot(document.getElementById("app")!).render(<StrictMode><App /></StrictMode>);

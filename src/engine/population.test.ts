@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceGame, applyCommand, buildingCost, createInitialGame, createRematch } from "./game";
-import { developmentRate, getSkill, MAX_POPULATION_SKILLS, POPULATION_SKILLS, populationEffects, skillLockReason, type SkillId } from "./population";
-import { chooseBotCommand } from "../bots/basicBot";
+import { developmentRate, getSkill, MAX_POPULATION_SKILLS, POPULATION_SKILLS, populationEffects, researchEstimate, researchPath, skillLockReason, skillRequirements, type SkillId } from "./population";
+import { chooseBotCommand, provinceRole } from "../bots/basicBot";
 import type { GameState, TerritoryState } from "./types";
 
 function fixture() {
@@ -149,5 +149,76 @@ describe("province skill trees", () => {
     expect(command?.type).toBe("research");
     const next = applyCommand(game, command!).state;
     expect(next.territories[id].development).toBeLessThan(game.territories[id].development!);
+  });
+  it("plans a research path in prerequisite order and reports impossible plans", () => {
+    const { game, id } = fixture();
+    expect(researchPath(game.territories[id], "freeport").path).toEqual(["market", "guilds", "docks", "bank", "freeport"]);
+    const learned = learn(learn(learn(learn(learn(game, id, "market"), id, "guilds"), id, "docks"), id, "bank"), id, "industrial-hub");
+    expect(researchPath(learned.territories[id], "freeport").problem).toContain("exclusive");
+    expect(applyCommand(learned, { type: "planResearch", player: "human", territory: id, skill: "freeport" }).ok).toBe(false);
+    const full: TerritoryState = { ...game.territories[id], skills: ["market", "guilds", "docks", "bank", "sanitation", "granaries", "schools", "hospital", "council", "census", "public-works"] };
+    expect(researchPath(full, "bastion").problem).toContain("choices");
+  });
+  it("learns a planned path automatically, one affordable step per cycle", () => {
+    const { game, id } = fixture();
+    game.territories[id] = { ...game.territories[id], development: 4 };
+    const planned = applyCommand(game, { type: "planResearch", player: "human", territory: id, skill: "bank" });
+    expect(planned.ok).toBe(true);
+    // The first step is affordable immediately.
+    expect(planned.state.territories[id].skills).toEqual(["market"]);
+    expect(planned.state.territories[id].researchGoal).toBe("bank");
+    let state = planned.state;
+    for (let tick = 0; tick < 120 && state.territories[id].researchGoal; tick++) state = advanceGame(state);
+    expect(state.territories[id].skills).toEqual(["market", "guilds", "docks", "bank"]);
+    expect(state.territories[id].researchGoal).toBeUndefined();
+    expect(state.events.some(event => event.message.includes("completed planned research: Municipal bank"))).toBe(true);
+  });
+  it("cancels plans on request and when the province changes hands", () => {
+    const { game, id } = fixture();
+    game.territories[id] = { ...game.territories[id], development: 0 };
+    const planned = applyCommand(game, { type: "planResearch", player: "human", territory: id, skill: "hospital" }).state;
+    expect(planned.territories[id].researchGoal).toBe("hospital");
+    const cancelled = applyCommand(planned, { type: "planResearch", player: "human", territory: id, skill: null });
+    expect(cancelled.ok).toBe(true);
+    expect(cancelled.state.territories[id].researchGoal).toBeUndefined();
+    expect(applyCommand(cancelled.state, { type: "planResearch", player: "human", territory: id, skill: null }).ok).toBe(false);
+    const from = game.map.territories.find(t => t.id === id)!;
+    const neighbour = from.neighbours[0];
+    const enemy = { ...planned, territories: { ...planned.territories, [neighbour]: { ...planned.territories[neighbour], owner: "bot" as const, units: 60 } } };
+    const captured = applyCommand(enemy, { type: "expand", player: "bot", from: neighbour, to: id, units: 50 });
+    expect(captured.state.territories[id].owner).toBe("bot");
+    expect(captured.state.territories[id].researchGoal).toBeUndefined();
+    expect(applyCommand(game, { type: "planResearch", player: "bot", territory: id, skill: "market" }).ok).toBe(false);
+  });
+  it("describes requirements and estimates when a goal is reachable", () => {
+    const { game, id } = fixture();
+    const territory = { ...game.territories[id], development: 10, population: 120, skills: ["market"] as SkillId[] };
+    const requirements = skillRequirements(territory, getSkill("bank")!, 3);
+    expect(requirements.filter(r => r.kind === "prerequisite").map(r => r.met)).toEqual([false, false]);
+    expect(requirements.find(r => r.kind === "population")!.met).toBe(true);
+    expect(requirements.find(r => r.kind === "credits")!.met).toBe(false);
+    const estimate = researchEstimate(territory, "bank", 3, 2);
+    expect(estimate.path).toEqual(["guilds", "docks", "bank"]);
+    expect(estimate.pointsShort).toBe(8 + 8 + 12 - 10);
+    expect(estimate.creditsShort).toBe(2 + 2 + 4 - 3);
+    expect(estimate.cycles).toBe(9);
+    expect(estimate.seconds).toBe(27);
+  });
+  it("adds terrain development to the local rate", () => {
+    const { game, id } = fixture();
+    expect(developmentRate(game.territories[id], "hills")).toBe(developmentRate(game.territories[id]) + 1);
+    expect(developmentRate(game.territories[id], "plains")).toBe(developmentRate(game.territories[id]));
+  });
+  it("lets bots specialise provinces by role and plan when nothing is affordable", () => {
+    const { game, id } = fixture();
+    expect(provinceRole(game, "human", id)).toBe("capital");
+    game.tick = 6;
+    for (const territory of Object.values(game.territories)) territory.units = 1;
+    const research = chooseBotCommand(game, "expert", "human");
+    expect(research).toEqual({ type: "research", player: "human", territory: id, skill: "sanitation" });
+    game.territories[id] = { ...game.territories[id], development: 3, skills: ["sanitation"] };
+    game.tradeCredits.human = 0;
+    expect(chooseBotCommand(game, "expert", "human")).toEqual({ type: "planResearch", player: "human", territory: id, skill: "university" });
+    expect(chooseBotCommand(game, "easy", "human")?.type).not.toBe("planResearch");
   });
 });

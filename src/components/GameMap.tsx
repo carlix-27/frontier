@@ -3,6 +3,7 @@ import { getTerritory } from "../engine/map";
 import { areAllied } from "../engine/diplomacy";
 import { getPlayerColor, isPlayerAlive } from "../engine/players";
 import type { BuildingType, GameState, TerritoryId } from "../engine/types";
+import { neutralFill, TerrainPatterns, terrainPattern } from "./TerrainPatterns";
 
 interface Props { game: GameState; speed: 1 | 2 | 4; paused: boolean; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; onTerritoryContextMenu?: (id: TerritoryId, x: number, y: number) => void; }
 
@@ -32,7 +33,9 @@ function seaRoute(from: { x: number; y: number }, to: { x: number; y: number }):
 
 export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTerritoryContextMenu }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const railMaskPrefix = useId().replace(/:/g, "");
+  const railMaskPrefix = useId().replace(/[^a-zA-Z0-9-]/g, "");
+  const terrainPrefix = `${railMaskPrefix}-terrain`;
+  const seaLanes = game.map.territories.flatMap((territory) => territory.seaNeighbours.filter((id) => id > territory.id).map((id) => ({ id: `${territory.id}:${id}`, from: territory, to: getTerritory(game.map, id) })));
   useEffect(() => { if (paused) svgRef.current?.pauseAnimations(); else svgRef.current?.unpauseAnimations(); }, [paused]);
   const moving = game.events.filter((event) => event.movement).slice(0, 3);
   const captures = game.events.filter((event) => event.capture).slice(0, 2);
@@ -58,25 +61,29 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
     return game.territories[route.from].owner === route.player && isPlayerAlive(game, route.player) && recipient === route.recipient && (recipient === route.player || (isPlayerAlive(game, recipient) && areAllied(game, route.player, recipient)));
   });
   return <svg ref={svgRef} className={paused ? "game-map paused" : "game-map"} viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
-    <defs><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient>{rails.map((rail) => <mask key={rail.id} id={`${railMaskPrefix}-${rail.id.replace(":", "-")}`} maskUnits="userSpaceOnUse" x="0" y="0" width="900" height="600"><path d={rail.path} className="rail-reveal" pathLength="100" style={{ animationDuration: `${4.8 / speed}s` }} /></mask>)}</defs>
+    <defs><TerrainPatterns prefix={terrainPrefix} /><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient>{rails.map((rail) => <mask key={rail.id} id={`${railMaskPrefix}-${rail.id.replace(":", "-")}`} maskUnits="userSpaceOnUse" x="0" y="0" width="900" height="600"><path d={rail.path} className="rail-reveal" pathLength="100" style={{ animationDuration: `${4.8 / speed}s` }} /></mask>)}</defs>
     <rect width="900" height="600" fill="url(#ocean)" />
     <g className="trade-routes">{visibleTradeRoutes.map((route) => {
       const from = getTerritory(game.map, route.from); const to = getTerritory(game.map, route.to); const sea = seaRoute(from, to);
       return <g key={`${route.id}-${route.player}-${route.recipient}`}><path d={sea.path} className="trade-wake" /><g className={`trade-ship ${route.player}`}><animateMotion path={sea.roundTrip} dur={`${8 / speed}s`} repeatCount="indefinite" rotate="auto" /><path d="M-13,5 L12,5 L8,11 L-9,11 Z" className="ship-hull" /><g className="ship-cargo"><animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.42;0.5;0.92;1" dur={`${8 / speed}s`} repeatCount="indefinite" /><rect x="-7" y="-4" width="5" height="8" /><rect x="-1" y="-4" width="5" height="8" /><rect x="5" y="-2" width="4" height="6" /></g><path d="M-8,4 L-8,-10 L-3,-10 L-3,4 Z" className="ship-bridge" /></g><g className="trade-unload" transform={`translate(${to.x - 10} ${to.y - 8})`}><rect width="7" height="7" /><rect x="8" width="7" height="7" /><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4;0.46;0.54;0.6" dur={`${8 / speed}s`} repeatCount="indefinite" /></g></g>;
     })}</g>
+    <g className="sea-lanes" aria-hidden="true">{seaLanes.map((lane) => <line key={lane.id} x1={lane.from.x} y1={lane.from.y} x2={lane.to.x} y2={lane.to.y} />)}</g>
+    <path d={game.map.landPath} className="shallows" />
     <path d={game.map.landPath} className="land-bed" />
     <path d={game.map.landPath} className="land-outline" />
+    {game.map.countries?.map((country) => <text key={country.id} x={country.x} y={country.y} className="country-name">{country.name}</text>)}
     {!game.map.landmassCount && <path className="river" d="M556,145 C535,200 570,238 531,284 C495,328 526,372 482,430" />}
     {selected && <g className="sea-attack-routes">{getTerritory(game.map, selected).seaNeighbours.map((id) => { const source = getTerritory(game.map, selected); const target = getTerritory(game.map, id); return <line key={id} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />; })}</g>}
     <g clipPath="url(#land-clip)">
       {game.map.territories.map((territory) => {
         const state = game.territories[territory.id];
         return <g key={territory.id} onClick={() => onTerritoryClick(territory.id)} onContextMenu={(event) => { event.preventDefault(); onTerritoryContextMenu?.(territory.id, event.clientX, event.clientY); }} className="territory-group">
-          <path d={territory.path} className={`territory ${state.owner ?? "neutral"} ${selected === territory.id ? "selected" : ""}`} style={{ fill: getPlayerColor(state.owner) }} />
+          <path d={territory.path} className={`territory ${state.owner ?? "neutral"} ${selected === territory.id ? "selected" : ""}`} style={{ fill: state.owner ? getPlayerColor(state.owner) : neutralFill(territory, getPlayerColor(null)) }} />
           {state.fortification > 0 && <circle cx={territory.x} cy={territory.y - 18} r="7" className="fortification" />}
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
         </g>;
       })}
+      <g className="terrain-layer" aria-hidden="true">{game.map.territories.map((territory) => territory.terrain && <path key={`terrain-${territory.id}`} d={territory.path} className={`terrain-overlay ${territory.terrain}`} fill={terrainPattern(terrainPrefix, territory.terrain)} />)}</g>
       <g className="rail-lines">{rails.map((rail) => <g key={rail.id} className={rail.supplied ? "rail-link supplied" : "rail-link"} mask={`url(#${railMaskPrefix}-${rail.id.replace(":", "-")})`}><path d={rail.path} className="rail-bed" /><path d={rail.path} className="rail-ties" /><path d={rail.path} className="rail-metal" /></g>)}</g>
       <g className="rail-traffic">{trains.map((train) => <g key={train.id} className="rail-train" style={{ animationDelay: `${4.8 / speed}s` }}><animateMotion path={train.roundTrip} dur={`${9 / speed}s`} repeatCount="indefinite" rotate="auto" /><rect className="train-body" x="-5" y="-3" width="10" height="6" rx="1" /><rect className="train-window" x="-3" y="-2" width="3" height="2" /><rect className="train-window" x="1" y="-2" width="2" height="2" /><circle className="train-wheel" cx="-3" cy="3" r="1" /><circle className="train-wheel" cx="3" cy="3" r="1" /></g>)}</g>
       <g className="city-layer">{game.map.territories.map((territory) => <CityScene key={`city-${territory.id}`} x={territory.x} y={territory.y} buildings={game.territories[territory.id].buildings} speed={speed} />)}</g>

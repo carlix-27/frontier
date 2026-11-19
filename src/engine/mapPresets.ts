@@ -7,8 +7,8 @@ export const GENERATED_MAP_PRESETS: MapPreset[] = [
   { id: "northern-passage", name: "Northern Passage", seed: 953, description: "Northern and southern shores", generation: { landmasses: 2, islands: 16, provinces: 40, layout: "rows", roughness: 1 } },
   { id: "broken-crown", name: "Broken Crown", seed: 1064, description: "Five countries around an inland sea", generation: { landmasses: 5, islands: 12, provinces: 40, layout: "ring", roughness: 1 } },
   { id: "merchant-sea", name: "Merchant Sea", seed: 1175, description: "Six realms connected by sea lanes", generation: { landmasses: 6, islands: 16, provinces: 42, layout: "grid", roughness: .4 } },
-  { id: "sunken-empire", name: "Sunken Empire", seed: 1286, description: "Eight fragmented island countries", generation: { landmasses: 8, islands: 18, provinces: 40, layout: "grid", roughness: .85 } },
+  { id: "sunken-empire", name: "Sunken Empire", seed: 1286, description: "Eight fragmented countries scattered across the sea", generation: { landmasses: 8, islands: 18, provinces: 40, layout: "scatter", roughness: .85 } },
   { id: "atoll-kingdoms", name: "Atoll Kingdoms", seed: 1397, description: "Seven countries encircle a lagoon", generation: { landmasses: 7, islands: 10, provinces: 35, layout: "ring", roughness: .6 } },
   { id: "island-frontier", name: "Island Frontier", seed: 1508, description: "Three large realms and 24 small islands", generation: { landmasses: 3, islands: 24, provinces: 36, layout: "grid", roughness: 1 } },
-  { id: "shattered-world", name: "Shattered World", seed: 1619, description: "Twelve countries in a scattered world", generation: { landmasses: 12, islands: 20, provinces: 48, layout: "grid", roughness: .9 } },
+  { id: "shattered-world", name: "Shattered World", seed: 1619, description: "Twelve countries in a scattered world", generation: { landmasses: 12, islands: 20, provinces: 48, layout: "scatter", roughness: .9 } },
 ];
