@@ -18,6 +18,27 @@
 .map-option strong { font-size: 1.1rem; }
 
 .game-map, .setup-preview-svg, .live-preview-map { background: var(--atlas-paper); }
+.game-map, .setup-preview-svg {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.game-map text, .setup-preview-svg text { pointer-events: none; }
+.ocean-waves {
+  fill: none;
+  stroke: #466d68;
+  stroke-width: .9;
+  stroke-opacity: .4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ocean-name-wash { fill: #c2d4c5; fill-opacity: .78; }
+.ocean-name {
+  font-family: var(--atlas-book);
+  font-size: 15px;
+  font-style: italic;
+  letter-spacing: .075em;
+  fill: #3e605c;
+}
 .land-bed, .preview-land { fill: #d2c4a0; }
 .land-outline, .preview-coast { stroke: #72674d; stroke-linejoin: round; }
 .land-outline { stroke-width: 3; }
@@ -106,3 +127,4 @@
 .battle-notices strong, .battle-notices small { display: block; line-height: 1.35; }
 .battle-notices strong { font-size: .75rem; }
 .battle-notices small { font-size: .67rem; color: var(--muted); }
+.ocean-name.compact { font-size: 11px; letter-spacing: .04em; }

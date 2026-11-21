@@ -1,4 +1,5 @@
 import { AtlasPaper, AtlasSea } from "./AtlasSheet";
+import { AtlasWaters } from "./AtlasWaters";
 import { useId } from "react";
 import { Map, MapPin, Mountain, TriangleAlert, Waves } from "lucide-react";
 import { getPlayerColor, getPlayerName } from "../engine/players";
@@ -23,6 +24,7 @@ export function MapPreview({ map, name, description, error }: Props) {
     <svg className="setup-preview-svg" viewBox="0 0 900 600" role="img" aria-label={`${name}: ${map.territories.length} provinces, ${islandCount} islands, and ${capitals.length} starting capitals`}>
       <defs><TerrainPatterns prefix={prefix} /><clipPath id={`${prefix}-clip`}><path d={map.landPath} /></clipPath></defs>
       <AtlasSea prefix={prefix} />
+      <AtlasWaters map={map} prefix={prefix} />
       <g className="sea-lanes">{map.territories.flatMap((territory) => territory.seaNeighbours.filter((id) => id > territory.id).map((id) => { const other = map.territories.find((candidate) => candidate.id === id)!; return <line key={`${territory.id}:${id}`} x1={territory.x} y1={territory.y} x2={other.x} y2={other.y} />; }))}</g>
       <path d={map.landPath} className="shallows" />
       <path d={map.landPath} className="preview-land" />

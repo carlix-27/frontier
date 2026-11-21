@@ -1,4 +1,5 @@
 import { AtlasPaper, AtlasSea } from "./AtlasSheet";
+import { AtlasWaters } from "./AtlasWaters";
 import { Swords } from "lucide-react";
 import type { BattleReport } from "../engine/types";
 import { useEffect, useId, useRef } from "react";
@@ -69,6 +70,7 @@ export function GameMap({ game, battles = [], speed, paused, selected, onTerrito
   return <svg ref={svgRef} className={paused ? "game-map paused" : "game-map"} viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
     <defs><TerrainPatterns prefix={terrainPrefix} /><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath>{rails.map((rail) => <mask key={rail.id} id={`${railMaskPrefix}-${rail.id.replace(":", "-")}`} maskUnits="userSpaceOnUse" x="0" y="0" width="900" height="600"><path d={rail.path} className="rail-reveal" pathLength="100" style={{ animationDuration: `${4.8 / speed}s` }} /></mask>)}</defs>
     <AtlasSea prefix={terrainPrefix} />
+    <AtlasWaters map={game.map} prefix={terrainPrefix} />
     <g className="trade-routes">{visibleTradeRoutes.map((route) => {
       const from = getTerritory(game.map, route.from); const to = getTerritory(game.map, route.to); const sea = seaRoute(from, to);
       return <g key={`${route.id}-${route.player}-${route.recipient}`}><path d={sea.path} className="trade-wake" /><g className={`trade-ship ${route.player}`}><animateMotion path={sea.roundTrip} dur={`${8 / speed}s`} repeatCount="indefinite" rotate="auto" /><path d="M-13,5 L12,5 L8,11 L-9,11 Z" className="ship-hull" /><g className="ship-cargo"><animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.42;0.5;0.92;1" dur={`${8 / speed}s`} repeatCount="indefinite" /><rect x="-7" y="-4" width="5" height="8" /><rect x="-1" y="-4" width="5" height="8" /><rect x="5" y="-2" width="4" height="6" /></g><path d="M-8,4 L-8,-10 L-3,-10 L-3,4 Z" className="ship-bridge" /></g><g className="trade-unload" transform={`translate(${to.x - 10} ${to.y - 8})`}><rect width="7" height="7" /><rect x="8" width="7" height="7" /><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4;0.46;0.54;0.6" dur={`${8 / speed}s`} repeatCount="indefinite" /></g></g>;
