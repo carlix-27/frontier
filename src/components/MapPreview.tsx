@@ -1,3 +1,4 @@
+import { AtlasPaper, AtlasSea } from "./AtlasSheet";
 import { useId } from "react";
 import { Map, MapPin, Mountain, TriangleAlert, Waves } from "lucide-react";
 import { getPlayerColor, getPlayerName } from "../engine/players";
@@ -20,8 +21,8 @@ export function MapPreview({ map, name, description, error }: Props) {
   return <section className="setup-map-preview" aria-label={`Preview of ${name}`}>
     <div className="setup-preview-heading"><div><p className="eyebrow">SELECTED MAP</p><h3>{name}</h3><p>{description}</p></div><div className="setup-preview-stats"><span><Map size={15} />{map.territories.length} provinces</span><span><MapPin size={15} />{map.landmassCount ?? 1} {(map.landmassCount ?? 1) === 1 ? "country" : "countries"}</span><span><Waves size={15} />{islandCount} small islands</span></div></div>
     <svg className="setup-preview-svg" viewBox="0 0 900 600" role="img" aria-label={`${name}: ${map.territories.length} provinces, ${islandCount} islands, and ${capitals.length} starting capitals`}>
-      <defs><TerrainPatterns prefix={prefix} /><clipPath id={`${prefix}-clip`}><path d={map.landPath} /></clipPath><linearGradient id={`${prefix}-ocean`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient></defs>
-      <rect width="900" height="600" fill={`url(#${prefix}-ocean)`} />
+      <defs><TerrainPatterns prefix={prefix} /><clipPath id={`${prefix}-clip`}><path d={map.landPath} /></clipPath></defs>
+      <AtlasSea prefix={prefix} />
       <g className="sea-lanes">{map.territories.flatMap((territory) => territory.seaNeighbours.filter((id) => id > territory.id).map((id) => { const other = map.territories.find((candidate) => candidate.id === id)!; return <line key={`${territory.id}:${id}`} x1={territory.x} y1={territory.y} x2={other.x} y2={other.y} />; }))}</g>
       <path d={map.landPath} className="shallows" />
       <path d={map.landPath} className="preview-land" />
@@ -30,6 +31,7 @@ export function MapPreview({ map, name, description, error }: Props) {
         {map.territories.map((territory) => territory.terrain && <path key={`t-${territory.id}`} d={territory.path} className="terrain-overlay" fill={terrainPattern(prefix, territory.terrain)} />)}
       </g>
       <path d={map.landPath} className="preview-coast" />
+      <AtlasPaper />
       {map.countries?.map((country) => <text key={country.id} x={country.x} y={country.y} className="country-name">{country.name}</text>)}
       {capitals.map((territory) => <g key={territory.id} className="preview-capital" transform={`translate(${territory.x} ${territory.y})`}><circle r="17" style={{ fill: getPlayerColor(territory.capitalFor!) }} /><text textAnchor="middle" dominantBaseline="central">{getPlayerName(territory.capitalFor!).charAt(0)}</text></g>)}
     </svg>

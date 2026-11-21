@@ -20,6 +20,7 @@
     "vitest": "^5.1.0"
   },
   "dependencies": {
+    "@fontsource/germania-one": "^5.3.0",
     "d3-delaunay": "^6.0.6",
     "lucide-react": "^1.74.0",
     "react": "^19.3.1",

@@ -1,3 +1,4 @@
+import { AtlasPaper, AtlasSea } from "./AtlasSheet";
 import { useEffect, useId, useRef } from "react";
 import { getTerritory } from "../engine/map";
 import { areAllied } from "../engine/diplomacy";
@@ -61,8 +62,8 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
     return game.territories[route.from].owner === route.player && isPlayerAlive(game, route.player) && recipient === route.recipient && (recipient === route.player || (isPlayerAlive(game, recipient) && areAllied(game, route.player, recipient)));
   });
   return <svg ref={svgRef} className={paused ? "game-map paused" : "game-map"} viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
-    <defs><TerrainPatterns prefix={terrainPrefix} /><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath><linearGradient id="ocean" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#5ba9c2" /><stop offset="1" stopColor="#174c6d" /></linearGradient>{rails.map((rail) => <mask key={rail.id} id={`${railMaskPrefix}-${rail.id.replace(":", "-")}`} maskUnits="userSpaceOnUse" x="0" y="0" width="900" height="600"><path d={rail.path} className="rail-reveal" pathLength="100" style={{ animationDuration: `${4.8 / speed}s` }} /></mask>)}</defs>
-    <rect width="900" height="600" fill="url(#ocean)" />
+    <defs><TerrainPatterns prefix={terrainPrefix} /><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath>{rails.map((rail) => <mask key={rail.id} id={`${railMaskPrefix}-${rail.id.replace(":", "-")}`} maskUnits="userSpaceOnUse" x="0" y="0" width="900" height="600"><path d={rail.path} className="rail-reveal" pathLength="100" style={{ animationDuration: `${4.8 / speed}s` }} /></mask>)}</defs>
+    <AtlasSea prefix={terrainPrefix} />
     <g className="trade-routes">{visibleTradeRoutes.map((route) => {
       const from = getTerritory(game.map, route.from); const to = getTerritory(game.map, route.to); const sea = seaRoute(from, to);
       return <g key={`${route.id}-${route.player}-${route.recipient}`}><path d={sea.path} className="trade-wake" /><g className={`trade-ship ${route.player}`}><animateMotion path={sea.roundTrip} dur={`${8 / speed}s`} repeatCount="indefinite" rotate="auto" /><path d="M-13,5 L12,5 L8,11 L-9,11 Z" className="ship-hull" /><g className="ship-cargo"><animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.42;0.5;0.92;1" dur={`${8 / speed}s`} repeatCount="indefinite" /><rect x="-7" y="-4" width="5" height="8" /><rect x="-1" y="-4" width="5" height="8" /><rect x="5" y="-2" width="4" height="6" /></g><path d="M-8,4 L-8,-10 L-3,-10 L-3,4 Z" className="ship-bridge" /></g><g className="trade-unload" transform={`translate(${to.x - 10} ${to.y - 8})`}><rect width="7" height="7" /><rect x="8" width="7" height="7" /><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4;0.46;0.54;0.6" dur={`${8 / speed}s`} repeatCount="indefinite" /></g></g>;
@@ -71,7 +72,6 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
     <path d={game.map.landPath} className="shallows" />
     <path d={game.map.landPath} className="land-bed" />
     <path d={game.map.landPath} className="land-outline" />
-    {game.map.countries?.map((country) => <text key={country.id} x={country.x} y={country.y} className="country-name">{country.name}</text>)}
     {!game.map.landmassCount && <path className="river" d="M556,145 C535,200 570,238 531,284 C495,328 526,372 482,430" />}
     {selected && <g className="sea-attack-routes">{getTerritory(game.map, selected).seaNeighbours.map((id) => { const source = getTerritory(game.map, selected); const target = getTerritory(game.map, id); return <line key={id} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />; })}</g>}
     <g clipPath="url(#land-clip)">
@@ -92,7 +92,9 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
       const capture = event.capture!; const target = getTerritory(game.map, capture.territory);
       return <g key={`capture-wave-${event.tick}-${capture.territory}`}><path d={target.path} className="capture-before" style={{ fill: getPlayerColor(capture.previousOwner) }}><animate attributeName="fill-opacity" values="1;1;0" keyTimes="0;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className="capture-wave" style={{ fill: getPlayerColor(capture.player) }}><animate attributeName="fill-opacity" values="0;0.18;0.9;0" keyTimes="0;0.32;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className="capture-border"><animate attributeName="stroke-opacity" values="0;1;0" dur={`${1.05 / speed}s`} fill="freeze" /></path></g>;
     })}</g>
-    <g clipPath="url(#land-clip)" className="territory-label-layer">{game.map.territories.map((territory) => {
+    <AtlasPaper />
+    {game.map.countries?.map((country) => <text key={country.id} x={country.x} y={country.y} className="country-name">{country.name}</text>)}
+    <g className="territory-label-layer">{game.map.territories.map((territory) => {
       const state = game.territories[territory.id];
       return <g key={`label-${territory.id}`}><text x={territory.x} y={territory.y - 4} className={territory.island ? "region-name island-name" : "region-name"}>{territory.label}</text><text x={territory.x} y={territory.y + 16} className={territory.island ? "region-units island-units" : "region-units"}>{state.units}</text></g>;
     })}</g>

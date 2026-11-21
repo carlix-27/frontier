@@ -1,0 +1,59 @@
+/* Display lettering follows the atlas; small town names use a book face. */
+:root {
+  --atlas-display: "Germania One", Georgia, serif;
+  --atlas-book: "Palatino Linotype", Palatino, Georgia, serif;
+  --atlas-ink: #302a20;
+  --atlas-paper: #e8dcbc;
+}
+
+.site-brand span, .home-hero h1, .match-header h1, .setup-preview-heading h3,
+.live-preview-info > strong, .map-option strong {
+  font-family: var(--atlas-display);
+  font-weight: 400;
+  letter-spacing: .015em;
+}
+
+.site-brand span { font-size: 1.4rem; }
+.setup-preview-heading h3 { font-size: 1.55rem; }
+.map-option strong { font-size: 1.1rem; }
+
+.game-map, .setup-preview-svg, .live-preview-map { background: var(--atlas-paper); }
+.land-bed, .preview-land { fill: #d2c4a0; }
+.land-outline, .preview-coast { stroke: #72674d; stroke-linejoin: round; }
+.land-outline { stroke-width: 3; }
+.preview-coast { stroke-width: 1.75; }
+.shallows { stroke: #f7ebcf; stroke-opacity: .65; stroke-width: 7; }
+.sea-lanes line { stroke: #446864; stroke-opacity: .48; stroke-width: 1.15; }
+.sea-attack-routes { stroke: #68452b; }
+.trade-wake, .invasion-wake { stroke: #527672; }
+.territory, .preview-province { stroke: #645c47; stroke-width: 1.25; stroke-linejoin: round; }
+.territory.selected { stroke: #3a2f20; stroke-width: 3.5; stroke-dasharray: 5 2; }
+.capital-ring, .preview-capital circle { stroke: #fcf0cb; }
+.capture-border { stroke: #ffedbb; }
+.terrain-layer, .setup-preview-svg .terrain-overlay { opacity: .73; }
+
+.country-name {
+  font-family: var(--atlas-display);
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: .04em;
+  text-transform: none;
+  fill: var(--atlas-ink);
+  fill-opacity: 1;
+  stroke: #f5ebd4;
+  stroke-opacity: .85;
+  stroke-width: 2.6px;
+  stroke-linejoin: round;
+}
+.region-name, .region-units, .troop-count, .preview-capital text {
+  font-family: var(--atlas-book);
+  fill: var(--atlas-ink);
+  font-weight: 700;
+}
+.region-name, .region-units, .troop-count {
+  stroke: #f8efd9;
+  stroke-width: 2.5px;
+}
+.region-name { font-size: 12px; }
+.island-name { font-size: 10px; }
+.region-units, .troop-count { font-variant-numeric: lining-nums tabular-nums; }

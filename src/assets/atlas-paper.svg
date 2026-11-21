@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+  <defs>
+    <!-- Render the fibres once as an image, independently of animated map layers. -->
+    <filter id="fibres" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency=".58 .32" numOctaves="3" seed="19"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 .25  0 0 0 0 .16  0 0 0 0 .08  1.7 0 0 0 -.72"/>
+    </filter>
+    <filter id="pulp" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency=".012 .019" numOctaves="4" seed="8"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 .91  0 0 0 0 .71  1.2 0 0 0 -.37"/>
+    </filter>
+    <radialGradient id="edge" cx=".5" cy=".46" r=".73">
+      <stop offset=".65" stop-color="#76502d" stop-opacity="0"/>
+      <stop offset="1" stop-color="#76502d" stop-opacity=".19"/>
+    </radialGradient>
+    <pattern id="rule" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(45)">
+      <rect width="12" height="12" fill="#e4d5ad"/>
+      <path d="M1 0v12 M4 0v12" stroke="#776747" stroke-width=".9"/>
+    </pattern>
+  </defs>
+  <rect width="900" height="600" fill="#f9e4b5" opacity=".12"/>
+  <rect width="900" height="600" filter="url(#pulp)" opacity=".42"/>
+  <rect width="900" height="600" filter="url(#fibres)" opacity=".19"/>
+  <rect width="900" height="600" fill="url(#edge)"/>
+  <g fill="none">
+    <rect x="2.5" y="2.5" width="895" height="595" stroke="#dacda9" stroke-width="5"/>
+    <rect x="7.5" y="7.5" width="885" height="585" stroke="#675b40" stroke-width="5"/>
+    <rect x="7.5" y="7.5" width="885" height="585" stroke="url(#rule)" stroke-width="3"/>
+  </g>
+</svg>
