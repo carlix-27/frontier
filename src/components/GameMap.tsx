@@ -44,7 +44,7 @@ export function GameMap({ game, battles = [], speed, paused, selected, onTerrito
   const terrainPrefix = `${railMaskPrefix}-terrain`;
   const seaLanes = game.map.territories.flatMap((territory) => territory.seaNeighbours.filter((id) => id > territory.id).map((id) => ({ id: `${territory.id}:${id}`, from: territory, to: getTerritory(game.map, id) })));
   useEffect(() => { if (paused) svgRef.current?.pauseAnimations(); else svgRef.current?.unpauseAnimations(); }, [paused]);
-  const moving = game.events.filter((event) => event.movement).slice(0, 3);
+  const moving = game.events.filter((event) => event.movement && !event.movement.bySea).slice(0, 3);
   const captures = game.events.filter((event) => event.capture).slice(0, 2);
   const rails = game.roadLinks.map((id) => {
     const [fromId, toId] = id.split(":");
@@ -112,12 +112,24 @@ export function GameMap({ game, battles = [], speed, paused, selected, onTerrito
       const state = game.territories[territory.id];
       return <g key={`label-${territory.id}`}><text x={territory.x} y={territory.y - 4} className={territory.island ? "region-name island-name" : "region-name"}>{territory.label}</text><text x={territory.x} y={territory.y + 16} className={territory.island ? "region-units island-units" : "region-units"}>{state.units}</text></g>;
     })}</g>
+    <g className="naval-expeditions" pointerEvents="none">{game.invasions.map((ship, index) => {
+      const from = getTerritory(game.map, ship.from);
+      const to = getTerritory(game.map, ship.to);
+      const path = `M${from.x},${from.y} Q${(from.x + to.x) / 2},${(from.y + to.y) / 2 - 16} ${to.x},${to.y}`;
+      const duration = (ship.arrivalTick - (ship.launchedTick ?? ship.arrivalTick - 1)) / speed;
+      return <g key={ship.id ?? `${ship.player}-${ship.from}-${ship.to}-${ship.arrivalTick}-${index}`} className="invasion-ship">
+        <title>{`${ship.units} troops sailing from ${from.label} to ${to.label}`}</title>
+        <path d={path} className="invasion-wake" />
+        <g>
+          <animateMotion path={path} dur={`${duration}s`} fill="freeze" rotate="auto" />
+          <path d="M-10,2 L10,2 L6,8 L-6,8 Z" className="invasion-hull" style={{ fill: getPlayerColor(ship.player) }} />
+          <path d="M-1,1 V-12 L7,-3 H-1" className="invasion-sail" />
+          <rect x="-6" y="-4" width="4" height="6" />
+        </g>
+      </g>;
+    })}</g>
     {moving.map((event, index) => {
       const move = event.movement!; const from = getTerritory(game.map, move.from); const to = getTerritory(game.map, move.to);
-      if (move.bySea) {
-        const path = `M${from.x},${from.y} Q${(from.x + to.x) / 2},${(from.y + to.y) / 2 - 16} ${to.x},${to.y}`;
-        return <g key={`${event.tick}-${index}-${move.from}-${move.to}`} className="invasion-ship"><path d={path} className="invasion-wake"><animate attributeName="stroke-opacity" values="0;.8;0" dur={`${0.9 / speed}s`} fill="freeze" /></path><g><animateMotion path={path} dur={`${0.9 / speed}s`} fill="freeze" rotate="auto" /><path d="M-9,2 L9,2 L6,7 L-6,7 Z" className="invasion-hull" style={{ fill: getPlayerColor(move.player) }} /><rect x="-5" y="-5" width="4" height="7" /><rect x="1" y="-5" width="4" height="7" /><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.82;1" dur={`${0.9 / speed}s`} fill="freeze" /></g></g>;
-      }
       return <g key={`${event.tick}-${index}-${move.from}-${move.to}`}><circle className={`troop ${move.player}`} style={{ fill: getPlayerColor(move.player), stroke: "#27423d" }} r="6" cx={from.x} cy={from.y}><animate attributeName="cx" from={from.x} to={to.x} dur={`${(move.byRoad ? 0.45 : 0.8) / speed}s`} fill="freeze" /><animate attributeName="cy" from={from.y} to={to.y} dur={`${(move.byRoad ? 0.45 : 0.8) / speed}s`} fill="freeze" /></circle><text className="troop-count" x={from.x} y={from.y - 12}>{move.units}</text></g>;
     })}
   </svg>;

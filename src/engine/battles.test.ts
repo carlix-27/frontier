@@ -26,7 +26,7 @@ describe("personal battle reports", () => {
   it("shows an outgoing sea attack before landing and reports a repelled landing", () => {
     const { state } = skirmish(true, "human", "bot", 1);
     expect(playerBattles(state, "human")).toMatchObject([{ outcome: "approaching" }]);
-    expect(playerBattles(advanceGame(state), "human")).toMatchObject([{ attacker: "human", defender: "bot", outcome: "repelled" }]);
+    expect(playerBattles(advanceGame(advanceGame(advanceGame(state))), "human")).toMatchObject([{ attacker: "human", defender: "bot", outcome: "repelled" }]);
   });
   it("ignores neutral expansion, reinforcements, and wars between other nations", () => {
     for (const sea of [true, false]) {

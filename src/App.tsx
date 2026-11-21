@@ -16,6 +16,7 @@ import { getMatchPlayers, getPlayerColor, getPlayerName, isPlayerAlive, MAX_BOTS
 import type { BuildingType, GameCommand, MapGenerationConfig, PlayerId, TerritoryId } from "./engine/types";
 import { loadProfile, saveProfile } from "./profile";
 import { directAttack } from "./engine/directAttack";
+import { canSail } from "./engine/navigation";
 import { areAllied } from "./engine/diplomacy";
 
 type ActionMode = "expand" | "fortify" | "supply" | "trade";
@@ -223,7 +224,7 @@ export default function App() {
       if (owner && areAllied(game, "human", owner)) { setHint("End the alliance before attacking that nation."); return; }
       const origin = selected ? getTerritory(game.map, selected) : null;
       const canUseSelected = origin && game.territories[origin.id].owner === "human" && game.territories[origin.id].units >= 2 &&
-        (origin.neighbours.includes(id) || origin.seaNeighbours.includes(id));
+        (origin.neighbours.includes(id) || canSail(game.map, origin, getTerritory(game.map, id)));
       const attack = canUseSelected
         ? { type: "expand" as const, player: "human" as const, from: origin.id, to: id, units: Math.min(attackUnits ?? defaultAttackForce(game.territories[origin.id].units), game.territories[origin.id].units - 1) }
         : directAttack(game, "human", id, directAttackPercent);

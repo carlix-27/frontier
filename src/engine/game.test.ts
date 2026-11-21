@@ -200,13 +200,13 @@ describe("Frontier engine", () => {
       expect(result.state.territories[island.id].owner).toBeNull();
       expect(result.state.invasions).toHaveLength(1);
       expect(result.state.events[0].movement?.bySea).toBe(true);
-      const landed = advanceGame(result.state);
+      const landed = advanceGame(advanceGame(advanceGame(result.state)));
       expect(landed.invasions).toHaveLength(0);
       expect(landed.territories[island.id].owner).toBe(player);
       expect(landed.events[0].capture?.territory).toBe(island.id);
       expect(applyCommand(landed, { type: "supply", player, from: port.id, to: island.id }).ok).toBe(false);
       const before = landed.territories[island.id].population;
-      const after = advanceGame(advanceGame(landed));
+      const after = advanceGame(advanceGame(advanceGame(landed)));
       expect(after.territories[island.id].population).toBeGreaterThan(before);
     }
   });

@@ -113,6 +113,8 @@ export interface BattleReport {
 }
 
 export interface SeaInvasion {
+  id?: string;
+  launchedTick?: number;
   from: TerritoryId;
   to: TerritoryId;
   player: PlayerId;

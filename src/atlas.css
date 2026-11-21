@@ -128,3 +128,4 @@
 .battle-notices strong { font-size: .75rem; }
 .battle-notices small { font-size: .67rem; color: var(--muted); }
 .ocean-name.compact { font-size: 11px; letter-spacing: .04em; }
+.invasion-sail { fill: #f7e8c6; stroke: #4e5142; stroke-width: .8; }

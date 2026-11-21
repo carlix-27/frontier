@@ -1,3 +1,4 @@
+import { canSail } from "./navigation";
 import { describe, expect, it } from "vitest";
 import { advanceGame, applyCommand, buildingCost, createInitialGame, createRematch } from "./game";
 import { developmentRate, getSkill, MAX_POPULATION_SKILLS, POPULATION_SKILLS, populationEffects, researchEstimate, researchPath, skillLockReason, skillRequirements, type SkillId } from "./population";
@@ -106,11 +107,12 @@ describe("province skill trees", () => {
   });
   it("allows an autonomous province to produce while disconnected", () => {
     const { game } = fixture();
-    const island = game.map.territories.find(t => t.island)!;
-    const ordinary = { ...game, territories: { ...game.territories, [island.id]: { ...game.territories[island.id], owner: "human" as const } } };
-    expect(cycle(ordinary).territories[island.id].population).toBe(ordinary.territories[island.id].population);
-    const autonomous = { ...ordinary, territories: { ...ordinary.territories, [island.id]: { ...ordinary.territories[island.id], skills: ["autonomy"] as SkillId[] } } };
-    expect(cycle(autonomous).territories[island.id].population).toBeGreaterThan(ordinary.territories[island.id].population);
+    const capital = game.map.territories.find(t => t.capitalFor === "human")!;
+    const isolated = game.map.territories.find(t => !t.island && !t.capitalFor && !capital.neighbours.includes(t.id) && !canSail(game.map, capital, t))!;
+    const ordinary = { ...game, territories: { ...game.territories, [isolated.id]: { ...game.territories[isolated.id], owner: "human" as const } } };
+    expect(cycle(ordinary).territories[isolated.id].population).toBe(ordinary.territories[isolated.id].population);
+    const autonomous = { ...ordinary, territories: { ...ordinary.territories, [isolated.id]: { ...ordinary.territories[isolated.id], skills: ["autonomy"] as SkillId[] } } };
+    expect(cycle(autonomous).territories[isolated.id].population).toBeGreaterThan(ordinary.territories[isolated.id].population);
   });
   it("keeps captured skills and clears all progress on replay", () => {
     const { game, id } = fixture();
@@ -132,7 +134,7 @@ describe("province skill trees", () => {
       game.territories[from.id] = { ...game.territories[from.id], owner: "human", units: 20, skills: ["expedition"] };
       game.territories[targetId] = { ...game.territories[targetId], units: 6, fortification: 0, skills: ["watch"] };
       const result = applyCommand(game, { type: "expand", player: "human", from: from.id, to: targetId, units: 5 });
-      const next = sea ? advanceGame(result.state) : result.state;
+      const next = sea ? advanceGame(advanceGame(advanceGame(result.state))) : result.state;
       expect(next.territories[targetId].owner).toBe("human");
       expect(next.territories[targetId].units).toBeLessThanOrEqual(5);
     }

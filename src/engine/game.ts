@@ -1,6 +1,7 @@
 import { CUSTOM_MAP_ID, generateFrontierMap, getTerritory, linkId, MAP_PRESETS } from "./map";
 import { allianceId, allianceRoll, areAllied, evaluateAlliance } from "./diplomacy";
 import { BATTLE_REPORT_TICKS, recordBattle } from "./battles";
+import { canSail } from "./navigation";
 import { getMatchPlayers, getPlayerName, isPlayerAlive } from "./players";
 import { CYCLE_SECONDS, developmentRate, getSkill, populationEffects, researchPath, skillLockReason } from "./population";
 import { terrainEffects } from "./terrain";
@@ -46,7 +47,8 @@ function isConnectedToCapital(state: GameState, territoryId: TerritoryId, player
     if (!current) break;
     if (current === territoryId) return true;
     const definition = getTerritory(state.map, current);
-    for (const neighbour of [...definition.neighbours, ...definition.seaNeighbours]) {
+    const sailing = state.map.territories.filter(province => state.territories[province.id].owner === player && canSail(state.map, definition, province)).map(province => province.id);
+    for (const neighbour of [...definition.neighbours, ...definition.seaNeighbours, ...sailing]) {
       if (!visited.has(neighbour) && state.territories[neighbour].owner === player) { visited.add(neighbour); queue.push(neighbour); }
     }
   }
@@ -201,7 +203,7 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     return { ok: true, state: withEvent({ ...state, tradeRoutes: [...state.tradeRoutes, { id, from: command.from, to: command.to, player: command.player, recipient: target.owner }] }, `${getPlayerName(command.player)} opened a trade route to ${getTerritory(state.map, command.to).label}.`) };
   }
   const origin = getTerritory(state.map, command.from);
-  const bySea = origin.seaNeighbours.includes(command.to);
+  const bySea = canSail(state.map, origin, getTerritory(state.map, command.to));
   if (!origin.neighbours.includes(command.to) && !bySea) return { ok: false, state, reason: "Those territories have no shared frontier or sea route." };
   const source = territories[command.from]; const target = territories[command.to];
   if (source.owner !== command.player) return { ok: false, state, reason: "Choose one of your territories first." };
@@ -224,7 +226,7 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
   const defence = defenceOf(state, command.to, target);
   const movement = { from: command.from, to: command.to, player: command.player, units: attackers, bySea, byRoad };
   if (bySea) {
-    const invasion = { from: command.from, to: command.to, player: command.player, units: attackers, attackBonus: populationEffects(source).attack, arrivalTick: state.tick + 1 };
+    const invasion = { id: `${state.tick}-${state.invasions.length}-${command.from}-${command.to}`, from: command.from, to: command.to, player: command.player, units: attackers, attackBonus: populationEffects(source).attack, launchedTick: state.tick, arrivalTick: state.tick + 3 };
     return { ok: true, state: withEvent({ ...state, territories, invasions: [...state.invasions, invasion] }, `${command.player} launched ${attackers} units by sea toward ${getTerritory(state.map, command.to).label}.`, movement) };
   }
   if (target.owner === command.player) {
