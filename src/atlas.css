@@ -129,3 +129,19 @@
 .battle-notices small { font-size: .67rem; color: var(--muted); }
 .ocean-name.compact { font-size: 11px; letter-spacing: .04em; }
 .invasion-sail { fill: #f7e8c6; stroke: #4e5142; stroke-width: .8; }
+.expedition-route { opacity: .65; animation: expedition-route-flow 2s linear infinite; }
+.expedition-landing {
+  fill: none;
+  stroke: #8e4f26;
+  stroke-width: 1.6;
+  stroke-dasharray: 3 3;
+  opacity: .55;
+  animation: expedition-landing-pulse 1.5s ease-in-out infinite alternate;
+}
+.vessel-wake { fill: none; stroke: #fff3d6; stroke-width: 1.2; stroke-linecap: round; }
+@keyframes expedition-route-flow { to { stroke-dashoffset: -16; } }
+@keyframes expedition-landing-pulse { to { stroke-opacity: .3; stroke-width: 3; } }
+.game-map.paused .expedition-route, .game-map.paused .expedition-landing { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .expedition-route, .expedition-landing { animation: none; }
+}

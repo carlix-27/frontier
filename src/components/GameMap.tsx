@@ -1,5 +1,6 @@
 import { AtlasPaper, AtlasSea } from "./AtlasSheet";
 import { AtlasWaters } from "./AtlasWaters";
+import { NavalExpedition } from "./NavalExpedition";
 import { Swords } from "lucide-react";
 import type { BattleReport } from "../engine/types";
 import { useEffect, useId, useRef } from "react";
@@ -115,18 +116,7 @@ export function GameMap({ game, battles = [], speed, paused, selected, onTerrito
     <g className="naval-expeditions" pointerEvents="none">{game.invasions.map((ship, index) => {
       const from = getTerritory(game.map, ship.from);
       const to = getTerritory(game.map, ship.to);
-      const path = `M${from.x},${from.y} Q${(from.x + to.x) / 2},${(from.y + to.y) / 2 - 16} ${to.x},${to.y}`;
-      const duration = (ship.arrivalTick - (ship.launchedTick ?? ship.arrivalTick - 1)) / speed;
-      return <g key={ship.id ?? `${ship.player}-${ship.from}-${ship.to}-${ship.arrivalTick}-${index}`} className="invasion-ship">
-        <title>{`${ship.units} troops sailing from ${from.label} to ${to.label}`}</title>
-        <path d={path} className="invasion-wake" />
-        <g>
-          <animateMotion path={path} dur={`${duration}s`} fill="freeze" rotate="auto" />
-          <path d="M-10,2 L10,2 L6,8 L-6,8 Z" className="invasion-hull" style={{ fill: getPlayerColor(ship.player) }} />
-          <path d="M-1,1 V-12 L7,-3 H-1" className="invasion-sail" />
-          <rect x="-6" y="-4" width="4" height="6" />
-        </g>
-      </g>;
+      return <NavalExpedition key={ship.id ?? `${ship.player}-${ship.from}-${ship.to}-${ship.arrivalTick}-${index}`} ship={ship} from={from} to={to} speed={speed} tick={game.tick} />;
     })}</g>
     {moving.map((event, index) => {
       const move = event.movement!; const from = getTerritory(game.map, move.from); const to = getTerritory(game.map, move.to);
