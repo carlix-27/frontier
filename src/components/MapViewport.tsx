@@ -91,7 +91,7 @@ export function MapViewport({ game, demoMode, speed, paused, selected, resetToke
   }
 
   return <>
-    <BattleNotices battles={battles} map={game.map} demoMode={demoMode} />
+    {!game.winner && <BattleNotices key={game.map.id} battles={battles} map={game.map} demoMode={demoMode} />}
     <div ref={viewportRef} className={`map-viewport${dragging ? " dragging" : ""}`} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd}>
       <div className="map-viewport-content" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
         <GameMap game={game} battles={battles} speed={speed} paused={paused} selected={selected} onTerritoryClick={(id) => { if (!suppressClickRef.current) onTerritoryClick(id); }} onTerritoryContextMenu={(id, x, y) => { if (!dragRef.current) onTerritoryContextMenu(id, x, y); }} />

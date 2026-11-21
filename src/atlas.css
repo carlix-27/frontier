@@ -87,6 +87,7 @@
   color: var(--text);
 }
 .battle-notices > div {
+  animation: battle-notice-fade 600ms ease-in 4s forwards;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -95,6 +96,10 @@
   border: 1px solid var(--border);
   border-left: 3px solid #ac803d;
   border-radius: 5px;
+}
+@keyframes battle-notice-fade { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .battle-notices > div { animation-duration: 1ms; }
 }
 .battle-notices .battle-incoming { border-left-color: #c04940; }
 .battle-notices svg { flex-shrink: 0; }
