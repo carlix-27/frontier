@@ -15,12 +15,14 @@ import { CUSTOM_MAP_ID, DEFAULT_CUSTOM_MAP, generateFrontierMap, getMapName, get
 import { getMatchPlayers, getPlayerColor, getPlayerName, isPlayerAlive, MAX_BOTS } from "./engine/players";
 import type { BuildingType, GameCommand, MapGenerationConfig, PlayerId, TerritoryId } from "./engine/types";
 import { loadProfile, saveProfile } from "./profile";
+import { directAttack } from "./engine/directAttack";
+import { areAllied } from "./engine/diplomacy";
 
 type ActionMode = "expand" | "fortify" | "supply" | "trade";
 type GameSpeed = 1 | 2 | 4;
 
 const descriptions: Record<ActionMode, string> = {
-  expand: "Attack a neighbor or move units to an ally along a road. A connected road adds 1 attack power.",
+  expand: "Click an enemy or neutral province to attack from your strongest connected garrison. You can also select an origin to set an exact force.",
   fortify: "Spend 2 units to increase a territory's defence.",
   supply: "Open a route between adjacent friendly territories for faster growth.",
   trade: "Connect your ports or trade with an allied nation. Both countries earn credits on international routes.",
@@ -62,6 +64,7 @@ export default function App() {
   const [mode, setMode] = useState<ActionMode>("expand");
   const [selected, setSelected] = useState<TerritoryId | null>(null);
   const [attackUnits, setAttackUnits] = useState<number | null>(null);
+  const [directAttackPercent, setDirectAttackPercent] = useState(25);
   const [buildingToPlace, setBuildingToPlace] = useState<BuildingType | null>(null);
   const [difficulty, setDifficulty] = useState<BotDifficulty>("normal");
   const [botCount, setBotCount] = useState(1);
@@ -96,7 +99,7 @@ export default function App() {
 
   function activateMode(action: ActionMode) {
     setMode(action); setSelected(null); setAttackUnits(null); setBuildingToPlace(null);
-    setHint(action === "fortify" ? "Select a friendly region to fortify." : action === "trade" ? "Select a friendly departure port." : "Select a friendly region to begin.");
+    setHint(action === "fortify" ? "Select a friendly region to fortify." : action === "trade" ? "Select a friendly departure port." : "Click an enemy or neutral province to attack.");
   }
 
   useEffect(() => {
@@ -215,6 +218,19 @@ export default function App() {
       return;
     }
     if (mode === "fortify") { submit({ type: "fortify", player: "human", territory: id }); return; }
+    if (mode === "expand" && game.territories[id].owner !== "human") {
+      const owner = game.territories[id].owner;
+      if (owner && areAllied(game, "human", owner)) { setHint("End the alliance before attacking that nation."); return; }
+      const origin = selected ? getTerritory(game.map, selected) : null;
+      const canUseSelected = origin && game.territories[origin.id].owner === "human" && game.territories[origin.id].units >= 2 &&
+        (origin.neighbours.includes(id) || origin.seaNeighbours.includes(id));
+      const attack = canUseSelected
+        ? { type: "expand" as const, player: "human" as const, from: origin.id, to: id, units: Math.min(attackUnits ?? defaultAttackForce(game.territories[origin.id].units), game.territories[origin.id].units - 1) }
+        : directAttack(game, "human", id, directAttackPercent);
+      if (!attack) { setHint("No friendly province with available troops is connected to this target by land or sea."); return; }
+      if (submit(attack)) setHint(`Sent ${attack.units} troops from ${getTerritory(game.map, attack.from).label} to ${getTerritory(game.map, id).label}.`);
+      return;
+    }
     if (!selected) {
       if (game.territories[id].owner !== "human") { setHint("Choose one of your own regions as the origin."); return; }
       setSelected(id); setAttackUnits(mode === "expand" ? defaultAttackForce(game.territories[id].units) : null); setHint(`Selected ${getTerritory(game.map, id).label}. ${mode === "trade" ? "Choose another friendly or allied port." : mode === "expand" ? "Set your force, then choose a neighboring province or linked island." : "Choose a neighboring region."}`); return;
@@ -263,7 +279,7 @@ export default function App() {
     catch (error) { setHint(error instanceof Error ? error.message : "This world cannot be generated."); return; }
     setMatchId((id) => id + 1); setTrackMatch(!forceDemo);
     setDemoMode(forceDemo); setGame(next); setSelected(null); setAttackUnits(null); setBuildingToPlace(null); setManagedTerritory(null); setContextMenu(null); setPaused(false); setScreen("game");
-    setHint(forceDemo ? `Blue and ${botCount} bot commanders are fighting. Right-click another nation for diplomacy.` : "Select a friendly region to begin. Right-click your land for population or another nation for diplomacy.");
+    setHint(forceDemo ? `Blue and ${botCount} bot commanders are fighting. Right-click another nation for diplomacy.` : "Click an enemy or neutral province to attack. Right-click your land for population or another nation for diplomacy.");
   }
 
   function enterPreview() {
@@ -312,7 +328,7 @@ export default function App() {
   const players = getMatchPlayers(game);
   const blueAlive = isPlayerAlive(game, "human");
   const guideSteps = [
-    { title: "Claim a neighboring province", detail: "Use Expand (1), choose a blue origin, set your force, then choose a neighbor.", done: blueRegions > 1 },
+    { title: "Claim a neighboring province", detail: "Use Expand (1), set your troop percentage, then click a reachable enemy or neutral province.", done: blueRegions > 1 },
     { title: "Open a trade route", detail: "Trade between your provinces, or right-click another nation to ally and trade.", done: game.tradeRoutes.some((route) => route.player === "human") },
     { title: "Develop a province", detail: "Spend trade credits on housing, a factory, or a railway.", done: Object.values(game.territories).some((territory) => territory.owner === "human" && territory.buildings.some((building) => building !== "housing")) },
     { title: "Manage population", detail: "Right-click a blue province and choose Manage population for its skill tree.", done: Object.values(game.territories).some((territory) => territory.owner === "human" && ((territory.skills?.length ?? 0) > 0 || Object.values(territory.upgrades).some((level) => level > 0))) },
@@ -342,7 +358,7 @@ export default function App() {
       <aside className="control-panel">
         {managedTerritory && !mapFullscreen && <PopulationPanel game={game} territoryId={managedTerritory} onCommand={submit} onClose={() => setManagedTerritory(null)} />}
         <div className="construction-menu"><p className="eyebrow">TRADE & DEVELOPMENT</p><p className="description">Trade routes fund permanent infrastructure. Click a project, then choose a friendly territory.</p>{buildingCards.map((card) => <button key={card.building} className={buildingToPlace === card.building ? "building-card active" : "building-card"} disabled={!Object.values(game.territories).some(t => t.owner === "human" && scores.credits >= buildingCost(t, card.building))} onClick={() => beginConstruction(card.building)}><b>{card.icon}</b><span><strong>{BUILDING_NAMES[card.building]} · {BUILDING_COSTS[card.building]} credits (before local discounts)</strong><small>{card.description}</small></span></button>)}</div>
-        <div><p className="eyebrow">COMMAND</p><div className="actions">{(["expand", "fortify", "supply", "trade"] as ActionMode[]).map((action, index) => { const Icon = commandIcons[action]; return <button key={action} className={mode === action && !buildingToPlace ? "active" : ""} onClick={() => activateMode(action)}><span><Icon size={16} />{action}</span><kbd>{index + 1}</kbd></button>; })}</div><p className="description">{descriptions[mode]}</p>{mode === "expand" && selected && <div className="force-control"><div><p className="eyebrow">ATTACK FORCE</p><strong>{committedUnits} units</strong><span>{selectedUnits - committedUnits} remain defending {getTerritory(game.map, selected).label}.</span></div><input aria-label="Attack force" type="range" min="1" max={maxAttackUnits} value={committedUnits} onChange={(event) => setAttackUnits(Number(event.target.value))} /><div className="force-presets"><button type="button" onClick={() => setAttackUnits(1)}>1</button><button type="button" onClick={() => setAttackUnits(Math.max(1, Math.floor(maxAttackUnits / 2)))}>Half</button><button type="button" onClick={() => setAttackUnits(maxAttackUnits)}>Max</button></div></div>}</div>
+        <div><p className="eyebrow">COMMAND</p><div className="actions">{(["expand", "fortify", "supply", "trade"] as ActionMode[]).map((action, index) => { const Icon = commandIcons[action]; return <button key={action} className={mode === action && !buildingToPlace ? "active" : ""} onClick={() => activateMode(action)}><span><Icon size={16} />{action}</span><kbd>{index + 1}</kbd></button>; })}</div><p className="description">{descriptions[mode]}</p>{mode === "expand" && !selected && <div className="force-control"><div><p className="eyebrow">ATTACK FORCE</p><strong>{directAttackPercent}% of the origin troops</strong><span>Uses your strongest connected province and leaves at least one defender.</span></div><input aria-label="Direct attack troop percentage" type="range" min="1" max="100" value={directAttackPercent} onChange={event => setDirectAttackPercent(Number(event.target.value))} /><div className="force-presets">{[10, 25, 50, 75].map(percent => <button type="button" key={percent} onClick={() => setDirectAttackPercent(percent)}>{percent}%</button>)}</div></div>}{mode === "expand" && selected && <div className="force-control"><div><p className="eyebrow">ATTACK FORCE</p><strong>{committedUnits} units</strong><span>{selectedUnits - committedUnits} remain defending {getTerritory(game.map, selected).label}.</span></div><input aria-label="Attack force" type="range" min="1" max={maxAttackUnits} value={committedUnits} onChange={(event) => setAttackUnits(Number(event.target.value))} /><div className="force-presets"><button type="button" onClick={() => setAttackUnits(1)}>1</button><button type="button" onClick={() => setAttackUnits(Math.max(1, Math.floor(maxAttackUnits / 2)))}>Half</button><button type="button" onClick={() => setAttackUnits(maxAttackUnits)}>Max</button></div></div>}</div>
         <label>Bot difficulty<select value={difficulty} onChange={(event) => setDifficulty(event.target.value as BotDifficulty)}><option value="easy">Easy</option><option value="normal">Normal</option><option value="expert">Expert</option></select></label>
         <label className="demo-toggle"><input type="checkbox" checked={demoMode} onChange={(event) => { setDemoMode(event.target.checked); if (event.target.checked) setTrackMatch(false); setSelected(null); setBuildingToPlace(null); setHint(event.target.checked ? "Demo enabled. Blue and red commanders are fighting." : "Demo disabled. Blue is under your command."); }} />Auto-play blue (demo)</label>
         <div className="controls"><button className="primary" onClick={showMatchSetup}>Create match</button></div>
