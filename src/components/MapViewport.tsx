@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { playerBattles } from "../engine/battles";
+import { BattleNotices } from "./BattleNotices";
 import { GameMap } from "./GameMap";
 import type { GameState, TerritoryId } from "../engine/types";
 
 interface Props {
   game: GameState;
+  demoMode: boolean;
   speed: 1 | 2 | 4;
   paused: boolean;
   selected: TerritoryId | null;
@@ -16,7 +19,8 @@ type View = { scale: number; x: number; y: number };
 const INITIAL_VIEW: View = { scale: 1, x: 0, y: 0 };
 const clampPan = (value: number, scale: number, size: number) => Math.min(0, Math.max(size * (1 - scale), value));
 
-export function MapViewport({ game, speed, paused, selected, resetToken, onTerritoryClick, onTerritoryContextMenu }: Props) {
+export function MapViewport({ game, demoMode, speed, paused, selected, resetToken, onTerritoryClick, onTerritoryContextMenu }: Props) {
+  const battles = playerBattles(game, "human");
   const viewportRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerId: number; x: number; y: number; view: View; moved: boolean } | null>(null);
   const suppressClickRef = useRef(false);
@@ -86,9 +90,12 @@ export function MapViewport({ game, speed, paused, selected, resetToken, onTerri
     setDragging(false);
   }
 
-  return <div ref={viewportRef} className={`map-viewport${dragging ? " dragging" : ""}`} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd}>
-    <div className="map-viewport-content" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
-      <GameMap game={game} speed={speed} paused={paused} selected={selected} onTerritoryClick={(id) => { if (!suppressClickRef.current) onTerritoryClick(id); }} onTerritoryContextMenu={(id, x, y) => { if (!dragRef.current) onTerritoryContextMenu(id, x, y); }} />
+  return <>
+    <BattleNotices battles={battles} map={game.map} demoMode={demoMode} />
+    <div ref={viewportRef} className={`map-viewport${dragging ? " dragging" : ""}`} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd}>
+      <div className="map-viewport-content" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
+        <GameMap game={game} battles={battles} speed={speed} paused={paused} selected={selected} onTerritoryClick={(id) => { if (!suppressClickRef.current) onTerritoryClick(id); }} onTerritoryContextMenu={(id, x, y) => { if (!dragRef.current) onTerritoryContextMenu(id, x, y); }} />
+      </div>
     </div>
-  </div>;
+  </>;
 }

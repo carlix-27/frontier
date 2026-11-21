@@ -100,7 +100,16 @@ export interface GameState {
   invasions: SeaInvasion[];
   tradeCredits: Record<PlayerId, number>;
   events: GameEvent[];
+  recentBattles?: BattleReport[];
   winner: PlayerId | "draw" | null;
+}
+
+export interface BattleReport {
+  territory: TerritoryId;
+  attacker: PlayerId;
+  defender: PlayerId;
+  tick: number;
+  outcome: "approaching" | "captured" | "repelled";
 }
 
 export interface SeaInvasion {

@@ -1,4 +1,6 @@
 import { AtlasPaper, AtlasSea } from "./AtlasSheet";
+import { Swords } from "lucide-react";
+import type { BattleReport } from "../engine/types";
 import { useEffect, useId, useRef } from "react";
 import { getTerritory } from "../engine/map";
 import { areAllied } from "../engine/diplomacy";
@@ -6,7 +8,7 @@ import { getPlayerColor, isPlayerAlive } from "../engine/players";
 import type { BuildingType, GameState, TerritoryId } from "../engine/types";
 import { neutralFill, TerrainPatterns, terrainPattern } from "./TerrainPatterns";
 
-interface Props { game: GameState; speed: 1 | 2 | 4; paused: boolean; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; onTerritoryContextMenu?: (id: TerritoryId, x: number, y: number) => void; }
+interface Props { game: GameState; battles?: BattleReport[]; speed: 1 | 2 | 4; paused: boolean; selected: TerritoryId | null; onTerritoryClick: (id: TerritoryId) => void; onTerritoryContextMenu?: (id: TerritoryId, x: number, y: number) => void; }
 
 function CityScene({ x, y, buildings, speed }: { x: number; y: number; buildings: BuildingType[]; speed: number }) {
   if (buildings.length === 0) return null;
@@ -32,7 +34,10 @@ function seaRoute(from: { x: number; y: number }, to: { x: number; y: number }):
   return { path, roundTrip: `${path} C${to.x},${seaY} ${from.x},${seaY} ${from.x},${from.y}` };
 }
 
-export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTerritoryContextMenu }: Props) {
+export function GameMap({ game, battles = [], speed, paused, selected, onTerritoryClick, onTerritoryContextMenu }: Props) {
+  // Newest first. Keep a single marker per province even during a counterattack.
+  const fronts = new Map<string, BattleReport>();
+  for (const battle of battles) if (!fronts.has(battle.territory)) fronts.set(battle.territory, battle);
   const svgRef = useRef<SVGSVGElement>(null);
   const railMaskPrefix = useId().replace(/[^a-zA-Z0-9-]/g, "");
   const terrainPrefix = `${railMaskPrefix}-terrain`;
@@ -79,6 +84,7 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
         const state = game.territories[territory.id];
         return <g key={territory.id} onClick={() => onTerritoryClick(territory.id)} onContextMenu={(event) => { event.preventDefault(); onTerritoryContextMenu?.(territory.id, event.clientX, event.clientY); }} className="territory-group">
           <path d={territory.path} className={`territory ${state.owner ?? "neutral"} ${selected === territory.id ? "selected" : ""}`} style={{ fill: state.owner ? getPlayerColor(state.owner) : neutralFill(territory, getPlayerColor(null)) }} />
+          {fronts.get(territory.id)?.defender === "human" && <path d={territory.path} className="battle-pulse" pointerEvents="none" aria-hidden="true" />}
           {state.fortification > 0 && <circle cx={territory.x} cy={territory.y - 18} r="7" className="fortification" />}
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
         </g>;
@@ -93,6 +99,12 @@ export function GameMap({ game, speed, paused, selected, onTerritoryClick, onTer
       return <g key={`capture-wave-${event.tick}-${capture.territory}`}><path d={target.path} className="capture-before" style={{ fill: getPlayerColor(capture.previousOwner) }}><animate attributeName="fill-opacity" values="1;1;0" keyTimes="0;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className="capture-wave" style={{ fill: getPlayerColor(capture.player) }}><animate attributeName="fill-opacity" values="0;0.18;0.9;0" keyTimes="0;0.32;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className="capture-border"><animate attributeName="stroke-opacity" values="0;1;0" dur={`${1.05 / speed}s`} fill="freeze" /></path></g>;
     })}</g>
     <AtlasPaper />
+    <g pointerEvents="none" aria-hidden="true">{Array.from(fronts.values(), battle => {
+      const province = getTerritory(game.map, battle.territory);
+      return <g key={province.id} className={`battle-marker ${battle.defender === "human" ? "incoming" : "outgoing"}`} transform={`translate(${province.x + 12} ${province.y - 22})`}>
+        <circle r="8.5" /><Swords x={-6} y={-6} size={12} strokeWidth={2.3} />
+      </g>;
+    })}</g>
     {game.map.countries?.map((country) => <text key={country.id} x={country.x} y={country.y} className="country-name">{country.name}</text>)}
     <g className="territory-label-layer">{game.map.territories.map((territory) => {
       const state = game.territories[territory.id];

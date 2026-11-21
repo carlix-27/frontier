@@ -1,5 +1,6 @@
 import { CUSTOM_MAP_ID, generateFrontierMap, getTerritory, linkId, MAP_PRESETS } from "./map";
 import { allianceId, allianceRoll, areAllied, evaluateAlliance } from "./diplomacy";
+import { BATTLE_REPORT_TICKS, recordBattle } from "./battles";
 import { getMatchPlayers, getPlayerName, isPlayerAlive } from "./players";
 import { CYCLE_SECONDS, developmentRate, getSkill, populationEffects, researchPath, skillLockReason } from "./population";
 import { terrainEffects } from "./terrain";
@@ -231,18 +232,20 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     return { ok: true, state: withEvent({ ...state, territories }, `${command.player} moved ${attackers} units along the road to ${getTerritory(state.map, command.to).label}.`, movement) };
   }
   const attackPower = attackers + (roadSupport ? 1 : 0) + populationEffects(source).attack;
+  const fought = recordBattle({ ...state, territories }, command.to, command.player, target.owner, attackPower > defence);
   if (attackPower > defence) {
     const previousOwner = target.owner; target.owner = command.player; target.units = Math.max(1, attackers + (roadSupport ? 1 : 0) - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0; delete target.researchGoal;
     const message = previousOwner ? `${command.player} captured ${getTerritory(state.map, command.to).label}.` : `${command.player} claimed ${getTerritory(state.map, command.to).label}.`;
-    return { ok: true, state: withEvent(withRoad({ ...state, territories }, command.from, command.to), message, movement, { territory: command.to, from: command.from, player: command.player, previousOwner }) };
+    return { ok: true, state: withEvent(withRoad(fought, command.from, command.to), message, movement, { territory: command.to, from: command.from, player: command.player, previousOwner }) };
   }
   target.units = Math.min(target.units, Math.max(1, defence - attackPower));
-  return { ok: true, state: withEvent({ ...state, territories }, `${command.player}'s attack was repelled.`, movement) };
+  return { ok: true, state: withEvent(fought, `${command.player}'s attack was repelled.`, movement) };
 }
 
 export function advanceGame(state: GameState): GameState {
   if (state.winner) return state;
   let next: GameState = { ...state, tick: state.tick + 1, territories: copyTerritories(state.territories), tradeCredits: { ...state.tradeCredits } };
+  if (next.recentBattles?.length) next.recentBattles = next.recentBattles.filter(b => next.tick - b.tick < BATTLE_REPORT_TICKS);
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const definition of next.map.territories) {
     const territory = next.territories[definition.id];
     const effects = populationEffects(territory);
@@ -286,6 +289,7 @@ export function advanceGame(state: GameState): GameState {
     if (target.owner === invasion.player) { target.units += invasion.units; next = withEvent(next, `${invasion.player} reinforced ${getTerritory(next.map, invasion.to).label} by sea.`); continue; }
     const defence = defenceOf(next, invasion.to, target);
     const attackPower = invasion.units + (invasion.attackBonus ?? 0);
+    next = recordBattle(next, invasion.to, invasion.player, target.owner, attackPower > defence);
     if (attackPower > defence) {
       const previousOwner = target.owner;
       target.owner = invasion.player; target.units = Math.max(1, invasion.units - defence); target.population = Math.max(12, Math.floor(target.population * 0.78)); target.fortification = 0; delete target.researchGoal;

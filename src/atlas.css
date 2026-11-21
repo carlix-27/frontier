@@ -57,3 +57,47 @@
 .region-name { font-size: 12px; }
 .island-name { font-size: 10px; }
 .region-units, .troop-count { font-variant-numeric: lining-nums tabular-nums; }
+
+/* Battle reports follow the local nation through the map and fullscreen views. */
+.battle-pulse {
+  fill: #ba2922;
+  stroke: #892d26;
+  stroke-width: 2;
+  opacity: .28;
+  animation: atlas-battle-pulse 1.65s ease-in-out infinite alternate;
+}
+@keyframes atlas-battle-pulse { from { opacity: .12; } to { opacity: .48; } }
+.game-map.paused .battle-pulse { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .battle-pulse { animation: none; } }
+.battle-marker { color: #fff6db; }
+.battle-marker circle { fill: #845615; stroke: #fff2d2; stroke-width: 1.4; }
+.battle-marker.incoming circle { fill: #98382d; }
+
+.battle-notices {
+  position: absolute;
+  z-index: 5;
+  bottom: 12px;
+  left: 12px;
+  display: grid;
+  gap: 3px;
+  max-width: min(205px, 40%);
+  max-height: 22%;
+  overflow-y: auto;
+  border-radius: 6px;
+  color: var(--text);
+}
+.battle-notices > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid #ac803d;
+  border-radius: 5px;
+}
+.battle-notices .battle-incoming { border-left-color: #c04940; }
+.battle-notices svg { flex-shrink: 0; }
+.battle-notices strong, .battle-notices small { display: block; line-height: 1.35; }
+.battle-notices strong { font-size: .75rem; }
+.battle-notices small { font-size: .67rem; color: var(--muted); }
