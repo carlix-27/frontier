@@ -5,8 +5,8 @@ import { Swords } from "lucide-react";
 import type { BattleReport } from "../engine/types";
 import { useEffect, useId, useRef } from "react";
 import { getTerritory } from "../engine/map";
-import { areAllied } from "../engine/diplomacy";
-import { getPlayerColor, isPlayerAlive } from "../engine/players";
+import { activeTradeRoute } from "../engine/trade";
+import { getPlayerColor } from "../engine/players";
 import type { BuildingType, GameState, TerritoryId } from "../engine/types";
 import { neutralFill, TerrainPatterns, terrainPattern } from "./TerrainPatterns";
 
@@ -64,10 +64,7 @@ export function GameMap({ game, battles = [], speed, paused, selected, onTerrito
     if (connection) trainLinks.add(connection.id);
   }
   const trains = rails.filter((rail) => trainLinks.has(rail.id)).slice(0, 8);
-  const visibleTradeRoutes = game.tradeRoutes.filter((route) => {
-    const recipient = game.territories[route.to].owner;
-    return game.territories[route.from].owner === route.player && isPlayerAlive(game, route.player) && recipient === route.recipient && (recipient === route.player || (isPlayerAlive(game, recipient) && areAllied(game, route.player, recipient)));
-  });
+  const visibleTradeRoutes = game.tradeRoutes.filter(route => activeTradeRoute(game, route));
   return <svg ref={svgRef} className={paused ? "game-map paused" : "game-map"} viewBox="0 0 900 600" role="img" aria-label="Generated fictional continent divided into conquerable regions">
     <defs><TerrainPatterns prefix={terrainPrefix} /><clipPath id="land-clip"><path d={game.map.landPath} /></clipPath>{rails.map((rail) => <mask key={rail.id} id={`${railMaskPrefix}-${rail.id.replace(":", "-")}`} maskUnits="userSpaceOnUse" x="0" y="0" width="900" height="600"><path d={rail.path} className="rail-reveal" pathLength="100" style={{ animationDuration: `${4.8 / speed}s` }} /></mask>)}</defs>
     <AtlasSea prefix={terrainPrefix} />

@@ -38,6 +38,10 @@ function coastalProvinces(map: MapDefinition) {
   return coastal;
 }
 
+export function isCoastal(map: MapDefinition, provinceId: string): boolean {
+  return coastalProvinces(map).has(provinceId);
+}
+
 /** Existing sea lanes and direct sailings between coastal provinces on separate landmasses. */
 export function canSail(map: MapDefinition, from: TerritoryDefinition, to: TerritoryDefinition): boolean {
   if (from.id === to.id || from.neighbours.includes(to.id)) return false;

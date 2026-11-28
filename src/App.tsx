@@ -1,3 +1,4 @@
+import { isCoastal } from "./engine/navigation";
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, Factory, Handshake, House, LogOut, Shield, Ship, Swords, TrainFront, X, type LucideIcon } from "lucide-react";
 import { chooseBotCommand, type BotDifficulty } from "./bots/basicBot";
@@ -26,7 +27,7 @@ const descriptions: Record<ActionMode, string> = {
   expand: "Click an enemy or neutral province to attack from your strongest connected garrison. You can also select an origin to set an exact force.",
   fortify: "Spend 2 units to increase a territory's defence.",
   supply: "Open a route between adjacent friendly territories for faster growth.",
-  trade: "Connect your ports or trade with an allied nation. Both countries earn credits on international routes.",
+  trade: "Trade by ship with another allied nation. Choose a coastal departure and a foreign coastal destination.",
 };
 const commandIcons: Record<ActionMode, LucideIcon> = { expand: Swords, fortify: Shield, supply: ArrowRight, trade: Ship };
 
@@ -234,7 +235,8 @@ export default function App() {
     }
     if (!selected) {
       if (game.territories[id].owner !== "human") { setHint("Choose one of your own regions as the origin."); return; }
-      setSelected(id); setAttackUnits(mode === "expand" ? defaultAttackForce(game.territories[id].units) : null); setHint(`Selected ${getTerritory(game.map, id).label}. ${mode === "trade" ? "Choose another friendly or allied port." : mode === "expand" ? "Set your force, then choose a neighboring province or linked island." : "Choose a neighboring region."}`); return;
+      if (mode === "trade" && !isCoastal(game.map, id)) { setHint("Choose a coastal province to launch trading ships."); return; }
+      setSelected(id); setAttackUnits(mode === "expand" ? defaultAttackForce(game.territories[id].units) : null); setHint(`Selected ${getTerritory(game.map, id).label}. ${mode === "trade" ? "Choose a coastal province of another allied nation." : mode === "expand" ? "Set your force, then choose a neighboring province or linked island." : "Choose a neighboring region."}`); return;
     }
     if (mode === "expand") submit({ type: "expand", player: "human", from: selected, to: id, units: attackUnits ?? defaultAttackForce(game.territories[selected].units) });
     else if (mode === "supply") submit({ type: "supply", player: "human", from: selected, to: id });
@@ -253,8 +255,8 @@ export default function App() {
 
   function tradeWithNation(target: TerritoryId) {
     const destination = getTerritory(game.map, target);
-    const source = game.map.territories.filter((territory) => game.territories[territory.id].owner === "human").sort((first, second) => Math.hypot(first.x - destination.x, first.y - destination.y) - Math.hypot(second.x - destination.x, second.y - destination.y))[0];
-    if (!source) { setHint("You need a province before opening a trade route."); return; }
+    const source = game.map.territories.filter((territory) => game.territories[territory.id].owner === "human" && isCoastal(game.map, territory.id)).sort((first, second) => Math.hypot(first.x - destination.x, first.y - destination.y) - Math.hypot(second.x - destination.x, second.y - destination.y))[0];
+    if (!source) { setHint("You need a coastal province before opening a trade route."); return; }
     if (submit({ type: "trade", player: "human", from: source.id, to: target })) setContextMenu(null);
   }
 
@@ -330,7 +332,7 @@ export default function App() {
   const blueAlive = isPlayerAlive(game, "human");
   const guideSteps = [
     { title: "Claim a neighboring province", detail: "Use Expand (1), set your troop percentage, then click a reachable enemy or neutral province.", done: blueRegions > 1 },
-    { title: "Open a trade route", detail: "Trade between your provinces, or right-click another nation to ally and trade.", done: game.tradeRoutes.some((route) => route.player === "human") },
+    { title: "Open a trade route", detail: "Right-click another nation to propose an alliance, then open a coastal trade route.", done: game.tradeRoutes.some((route) => route.player === "human") },
     { title: "Develop a province", detail: "Spend trade credits on housing, a factory, or a railway.", done: Object.values(game.territories).some((territory) => territory.owner === "human" && territory.buildings.some((building) => building !== "housing")) },
     { title: "Manage population", detail: "Right-click a blue province and choose Manage population for its skill tree.", done: Object.values(game.territories).some((territory) => territory.owner === "human" && ((territory.skills?.length ?? 0) > 0 || Object.values(territory.upgrades).some((level) => level > 0))) },
   ];

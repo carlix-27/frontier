@@ -267,7 +267,7 @@ describe("Frontier engine", () => {
     expect(state.winner).not.toBeNull();
     expect(state.tick).toBeLessThan(90);
   });
-  it("opens a trade route and delivers population on production ticks", () => {
+  it("rejects trade between two provinces of the same nation", () => {
     const initial = createInitialGame();
     const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;
     const destination = capital.neighbours[0];
@@ -275,13 +275,9 @@ describe("Frontier engine", () => {
     expect(expansion.ok).toBe(true);
     if (!expansion.ok) return;
     const trade = applyCommand(expansion.state, { type: "trade", player: "human", from: capital.id, to: destination });
-    expect(trade.ok).toBe(true);
-    if (!trade.ok) return;
-    const before = trade.state.territories[destination].population;
-    const after = advanceGame(advanceGame(advanceGame(trade.state)));
-    expect(after.tradeRoutes).toHaveLength(1);
-    expect(after.territories[destination].population).toBe(before + 3);
-    expect(after.tradeCredits.human).toBe(2);
+    expect(trade.ok).toBe(false);
+    expect(trade.state).toBe(expansion.state);
+    expect(trade.state.tradeRoutes).toHaveLength(0);
   });
   it("spends trade credits to build a factory with a production bonus", () => {
     const initial = createInitialGame(); const capital = initial.map.territories.find((territory) => territory.capitalFor === "human")!;

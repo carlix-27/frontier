@@ -2,6 +2,7 @@ import { CUSTOM_MAP_ID, generateFrontierMap, getTerritory, linkId, MAP_PRESETS }
 import { allianceId, allianceRoll, areAllied, evaluateAlliance } from "./diplomacy";
 import { BATTLE_REPORT_TICKS, recordBattle } from "./battles";
 import { canSail } from "./navigation";
+import { activeTradeRoute, tradeProblem } from "./trade";
 import { getMatchPlayers, getPlayerName, isPlayerAlive } from "./players";
 import { CYCLE_SECONDS, developmentRate, getSkill, populationEffects, researchPath, skillLockReason } from "./population";
 import { terrainEffects } from "./terrain";
@@ -194,13 +195,12 @@ export function applyCommand(state: GameState, command: GameCommand): CommandRes
     return { ok: true, state: withEvent({ ...state, territories }, `${command.player} fortified ${getTerritory(state.map, command.territory).label}.`) };
   }
   if (command.type === "trade") {
-    if (command.from === command.to) return { ok: false, state, reason: "Trade needs two different ports." };
-    const source = territories[command.from]; const target = territories[command.to];
-    if (!source || !target || source.owner !== command.player || !target.owner) return { ok: false, state, reason: "Choose one of your ports and an occupied destination." };
-    if (target.owner !== command.player && (!isPlayerAlive(state, target.owner) || !areAllied(state, command.player, target.owner))) return { ok: false, state, reason: "Establish an alliance with that nation before trading." };
+    const problem = tradeProblem(state, command.player, command.from, command.to);
+    if (problem) return { ok: false, state, reason: problem };
+    const target = territories[command.to];
     const id = linkId(command.from, command.to);
-    if (state.tradeRoutes.some((route) => route.id === id && route.player === command.player && route.recipient === target.owner)) return { ok: false, state, reason: "That trade route already exists." };
-    return { ok: true, state: withEvent({ ...state, tradeRoutes: [...state.tradeRoutes, { id, from: command.from, to: command.to, player: command.player, recipient: target.owner }] }, `${getPlayerName(command.player)} opened a trade route to ${getTerritory(state.map, command.to).label}.`) };
+    if (state.tradeRoutes.some((route) => route.id === id && activeTradeRoute(state, route))) return { ok: false, state, reason: "That trade route already exists." };
+    return { ok: true, state: withEvent({ ...state, tradeRoutes: [...state.tradeRoutes.filter(route => route.id !== id), { id, from: command.from, to: command.to, player: command.player, recipient: target.owner! }] }, `${getPlayerName(command.player)} opened a trade route to ${getTerritory(state.map, command.to).label}.`) };
   }
   const origin = getTerritory(state.map, command.from);
   const bySea = canSail(state.map, origin, getTerritory(state.map, command.to));
@@ -266,18 +266,15 @@ export function advanceGame(state: GameState): GameState {
       if (territory.researchGoal) next = progressResearchGoal(next, definition.id);
     }
   }
+  next.tradeRoutes = next.tradeRoutes.filter(route => activeTradeRoute(next, route));
   if (next.tick % PRODUCTION_INTERVAL === 0) for (const route of next.tradeRoutes) {
-    const recipient = next.territories[route.to].owner;
-    if (next.territories[route.from].owner !== route.player || !isPlayerAlive(next, route.player) || recipient !== route.recipient) continue;
+    const recipient = route.recipient;
     const sourceBonus = populationEffects(next.territories[route.from]).trade;
     const targetBonus = populationEffects(next.territories[route.to]).trade;
-    if (recipient === route.player) { next.territories[route.to].population += 2; next.tradeCredits[route.player] += 2 + sourceBonus + targetBonus; }
-    else if (areAllied(next, route.player, recipient) && isPlayerAlive(next, recipient)) {
-      next.territories[route.from].population += 1;
-      next.territories[route.to].population += 1;
-      next.tradeCredits[route.player] += 2 + sourceBonus;
-      next.tradeCredits[recipient] += 2 + targetBonus;
-    }
+    next.territories[route.from].population += 1;
+    next.territories[route.to].population += 1;
+    next.tradeCredits[route.player] += 2 + sourceBonus;
+    next.tradeCredits[recipient] += 2 + targetBonus;
   }
   const arrivals = next.invasions.filter((invasion) => invasion.arrivalTick <= next.tick);
   next.invasions = next.invasions.filter((invasion) => invasion.arrivalTick > next.tick);

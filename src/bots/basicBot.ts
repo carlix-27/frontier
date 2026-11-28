@@ -1,3 +1,5 @@
+import { isCoastal } from "../engine/navigation";
+import { tradeProblem, activeTradeRoute } from "../engine/trade";
 import { getTerritory, linkId } from "../engine/map";
 import { buildingCost, defenceOf } from "../engine/game";
 import { isPlayerAlive } from "../engine/players";
@@ -50,8 +52,17 @@ export function chooseBotCommand(state: GameState, difficulty: BotDifficulty, pl
     const plan = chooseResearch(state, player, owned, difficulty, true);
     if (plan) return plan;
   }
-  const trade = owned.flatMap((from) => owned.filter((to) => to !== from).map((to) => ({ from, to }))).find(({ from, to }) => !state.tradeRoutes.some((route) => route.player === player && route.recipient === player && route.id === linkId(from, to)));
-  if (trade && state.tradeRoutes.filter((route) => route.player === player).length < Math.max(1, Math.floor(owned.length / 6))) return { type: "trade", player, from: trade.from, to: trade.to };
+  const foreignPorts = state.map.territories.filter(port => {
+    const owner = state.territories[port.id].owner;
+    return owner && owner !== player && areAllied(state, player, owner) && isCoastal(state.map, port.id);
+  });
+  const trade = owned.flatMap(from => foreignPorts
+    .filter(to => !tradeProblem(state, player, from, to.id))
+    .map(to => ({ from, to: to.id })))
+    .find(({ from, to }) => !state.tradeRoutes.some(route => route.id === linkId(from, to) && activeTradeRoute(state, route)));
+  if (trade && state.tradeRoutes.filter(route => route.player === player || route.recipient === player).length < Math.max(1, Math.floor(owned.length / 6))) {
+    return { type: "trade", player, from: trade.from, to: trade.to };
+  }
   const buildOrder: BuildingType[] = ["factory", "railway", "housing"];
   const construction = owned.flatMap((territory) => buildOrder.filter((building) => state.tradeCredits[player] >= buildingCost(state.territories[territory], building) && !state.territories[territory].buildings.includes(building)).map((building) => ({ territory, building })))[0];
   if (construction) return { type: "build", player, territory: construction.territory, building: construction.building };
