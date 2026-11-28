@@ -1,3 +1,4 @@
+import { naturalizeMap } from "./mapGeometry";
 import { Delaunay } from "d3-delaunay";
 import type { MapDefinition, MapGenerationConfig, PlayerId, TerritoryDefinition, TerritoryId } from "./types";
 import { getBotIds } from "./players";
@@ -220,7 +221,7 @@ export function generateFrontierMap(seed = 27, presetId = "crownlands", botCount
       if (!nextIsland.seaNeighbours.includes(island.id)) nextIsland.seaNeighbours.push(island.id);
     }
   }
-  return { id: `${presetId}-${seed}`, seed, landPath: `${roughPath(coast, 10)} ${islands.map((island) => island.path).join(" ")}`, territories: [...territories, ...islandTerritories] };
+  return naturalizeMap({ id: `${presetId}-${seed}`, seed, landPath: `${roughPath(coast, 10)} ${islands.map((island) => island.path).join(" ")}`, territories: [...territories, ...islandTerritories] });
 }
 
 export function getTerritory(map: MapDefinition, id: TerritoryId): TerritoryDefinition {

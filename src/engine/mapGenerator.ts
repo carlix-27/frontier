@@ -1,3 +1,4 @@
+import { naturalizeMap } from "./mapGeometry";
 import { Delaunay } from "d3-delaunay";
 import { createNameGenerator } from "./names";
 import { getBotIds } from "./players";
@@ -478,7 +479,7 @@ export function generateMap(config: MapGenerationConfig, seed: number, botCount 
     const b = bounds(land.coast);
     return { id: land.id, name: land.name, x: (b.minX + b.maxX) / 2, y: Math.max(14, b.minY - 7) };
   });
-  return { id: `${id}-${seed}`, seed, landPath: lands.map(land => path(land.coast)).join(" "), landmassCount: config.landmasses, generation: { ...config }, countries, territories };
+  return naturalizeMap({ id: `${id}-${seed}`, seed, landPath: lands.map(land => path(land.coast)).join(" "), landmassCount: config.landmasses, generation: { ...config }, countries, territories });
 }
 
 /**

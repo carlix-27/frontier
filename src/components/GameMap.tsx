@@ -1,4 +1,4 @@
-import { AtlasPaper, AtlasSea } from "./AtlasSheet";
+import { AtlasSea } from "./AtlasSheet";
 import { AtlasWaters } from "./AtlasWaters";
 import { NavalExpedition } from "./NavalExpedition";
 import { Swords } from "lucide-react";
@@ -85,8 +85,9 @@ export function GameMap({ game, battles = [], speed, paused, selected, onTerrito
     <g clipPath="url(#land-clip)">
       {game.map.territories.map((territory) => {
         const state = game.territories[territory.id];
+        const color = state.owner ? getPlayerColor(state.owner) : neutralFill(territory, getPlayerColor(null));
         return <g key={territory.id} onClick={() => onTerritoryClick(territory.id)} onContextMenu={(event) => { event.preventDefault(); onTerritoryContextMenu?.(territory.id, event.clientX, event.clientY); }} className="territory-group">
-          <path d={territory.path} className={`territory ${state.owner ?? "neutral"} ${selected === territory.id ? "selected" : ""}`} style={{ fill: state.owner ? getPlayerColor(state.owner) : neutralFill(territory, getPlayerColor(null)) }} />
+          <path d={territory.path} className={`territory ${state.owner ?? "neutral"} ${selected === territory.id ? "selected" : ""}`} style={{ fill: color, stroke: `color-mix(in srgb, ${color} 76%, #253d3b)` }} />
           {fronts.get(territory.id)?.defender === "human" && <path d={territory.path} className="battle-pulse" pointerEvents="none" aria-hidden="true" />}
           {state.fortification > 0 && <circle cx={territory.x} cy={territory.y - 18} r="7" className="fortification" />}
           {territory.capitalFor && <circle cx={territory.x} cy={territory.y} r="25" className="capital-ring" />}
@@ -101,7 +102,6 @@ export function GameMap({ game, battles = [], speed, paused, selected, onTerrito
       const capture = event.capture!; const target = getTerritory(game.map, capture.territory);
       return <g key={`capture-wave-${event.tick}-${capture.territory}`}><path d={target.path} className="capture-before" style={{ fill: getPlayerColor(capture.previousOwner) }}><animate attributeName="fill-opacity" values="1;1;0" keyTimes="0;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className="capture-wave" style={{ fill: getPlayerColor(capture.player) }}><animate attributeName="fill-opacity" values="0;0.18;0.9;0" keyTimes="0;0.32;0.7;1" dur={`${1.05 / speed}s`} fill="freeze" /></path><path d={target.path} className="capture-border"><animate attributeName="stroke-opacity" values="0;1;0" dur={`${1.05 / speed}s`} fill="freeze" /></path></g>;
     })}</g>
-    <AtlasPaper />
     <g pointerEvents="none" aria-hidden="true">{Array.from(fronts.values(), battle => {
       const province = getTerritory(game.map, battle.territory);
       return <g key={province.id} className={`battle-marker ${battle.defender === "human" ? "incoming" : "outgoing"}`} transform={`translate(${province.x + 12} ${province.y - 22})`}>

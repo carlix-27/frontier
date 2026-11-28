@@ -1,9 +1,9 @@
-/* Display lettering follows the atlas; small town names use a book face. */
+/* Map typography and the shared territorial presentation. */
 :root {
   --atlas-display: "Germania One", Georgia, serif;
   --atlas-book: "Palatino Linotype", Palatino, Georgia, serif;
   --atlas-ink: #302a20;
-  --atlas-paper: #e8dcbc;
+  --atlas-paper: #628d98;
 }
 
 .site-brand span, .home-hero h1, .match-header h1, .setup-preview-heading h3,
@@ -27,41 +27,41 @@
   fill: none;
   stroke: #466d68;
   stroke-width: .9;
-  stroke-opacity: .4;
+  stroke-opacity: .14;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.ocean-name-wash { fill: #c2d4c5; fill-opacity: .78; }
+.ocean-name-wash { fill: none; }
 .ocean-name {
   font-family: var(--atlas-book);
   font-size: 15px;
   font-style: italic;
   letter-spacing: .075em;
-  fill: #3e605c;
+  fill: #d7e9e6;
 }
-.land-bed, .preview-land { fill: #d2c4a0; }
-.land-outline, .preview-coast { stroke: #72674d; stroke-linejoin: round; }
+.land-bed, .preview-land { fill: #a4be90; }
+.land-outline, .preview-coast { stroke: none; }
 .land-outline { stroke-width: 3; }
 .preview-coast { stroke-width: 1.75; }
-.shallows { stroke: #f7ebcf; stroke-opacity: .65; stroke-width: 7; }
-.sea-lanes line { stroke: #446864; stroke-opacity: .48; stroke-width: 1.15; }
+.shallows { stroke: #afd5cf; stroke-opacity: .2; stroke-width: 5; }
+.sea-lanes line { stroke: #d2e5e1; stroke-opacity: .22; stroke-width: 1.15; }
 .sea-attack-routes { stroke: #68452b; }
 .trade-wake, .invasion-wake { stroke: #527672; }
-.territory, .preview-province { stroke: #645c47; stroke-width: 1.25; stroke-linejoin: round; }
-.territory.selected { stroke: #3a2f20; stroke-width: 3.5; stroke-dasharray: 5 2; }
+.territory, .preview-province { stroke-width: 1.1; stroke-linejoin: round; }
+.territory.selected { stroke: #f1f7e8 !important; stroke-width: 2.5; }
 .capital-ring, .preview-capital circle { stroke: #fcf0cb; }
 .capture-border { stroke: #ffedbb; }
-.terrain-layer, .setup-preview-svg .terrain-overlay { opacity: .73; }
+.terrain-layer, .setup-preview-svg .terrain-overlay { opacity: 1; }
 
 .country-name {
-  font-family: var(--atlas-display);
-  font-size: 16px;
+  font-family: var(--atlas-book);
+  font-size: 15px;
   font-weight: 400;
   letter-spacing: .04em;
   text-transform: none;
   fill: var(--atlas-ink);
   fill-opacity: 1;
-  stroke: #f5ebd4;
+  stroke: #d6e5dd;
   stroke-opacity: .85;
   stroke-width: 2.6px;
   stroke-linejoin: round;
@@ -72,7 +72,7 @@
   font-weight: 700;
 }
 .region-name, .region-units, .troop-count {
-  stroke: #f8efd9;
+  stroke: #e2ecdc;
   stroke-width: 2.5px;
 }
 .region-name { font-size: 12px; }

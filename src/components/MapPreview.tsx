@@ -1,4 +1,4 @@
-import { AtlasPaper, AtlasSea } from "./AtlasSheet";
+import { AtlasSea } from "./AtlasSheet";
 import { AtlasWaters } from "./AtlasWaters";
 import { useId } from "react";
 import { Map, MapPin, Mountain, TriangleAlert, Waves } from "lucide-react";
@@ -29,11 +29,13 @@ export function MapPreview({ map, name, description, error }: Props) {
       <path d={map.landPath} className="shallows" />
       <path d={map.landPath} className="preview-land" />
       <g clipPath={`url(#${prefix}-clip)`}>
-        {map.territories.map((territory, index) => <path key={territory.id} d={territory.path} className={`preview-province tone-${index % 3}`} style={territory.capitalFor ? { fill: getPlayerColor(territory.capitalFor) } : territory.terrain ? { fill: neutralFill(territory, "") } : undefined} />)}
+        {map.territories.map(territory => {
+          const color = territory.capitalFor ? getPlayerColor(territory.capitalFor) : neutralFill(territory, getPlayerColor(null));
+          return <path key={territory.id} d={territory.path} className="preview-province" style={{ fill: color, stroke: `color-mix(in srgb, ${color} 76%, #253d3b)` }} />;
+        })}
         {map.territories.map((territory) => territory.terrain && <path key={`t-${territory.id}`} d={territory.path} className="terrain-overlay" fill={terrainPattern(prefix, territory.terrain)} />)}
       </g>
       <path d={map.landPath} className="preview-coast" />
-      <AtlasPaper />
       {map.countries?.map((country) => <text key={country.id} x={country.x} y={country.y} className="country-name">{country.name}</text>)}
       {capitals.map((territory) => <g key={territory.id} className="preview-capital" transform={`translate(${territory.x} ${territory.y})`}><circle r="17" style={{ fill: getPlayerColor(territory.capitalFor!) }} /><text textAnchor="middle" dominantBaseline="central">{getPlayerName(territory.capitalFor!).charAt(0)}</text></g>)}
     </svg>

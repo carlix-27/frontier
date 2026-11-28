@@ -27,7 +27,12 @@ function coastalProvinces(map: MapDefinition) {
   const coastal = new Set<string>();
   for (const province of map.territories) {
     const polygon = vertices(province.path);
-    if (province.island || coast.some(point => contains(point, polygon))) coastal.add(province.id);
+    const minX = Math.min(...polygon.map(point => point[0])) - .2;
+    const maxX = Math.max(...polygon.map(point => point[0])) + .2;
+    const minY = Math.min(...polygon.map(point => point[1])) - .2;
+    const maxY = Math.max(...polygon.map(point => point[1])) + .2;
+    if (province.island || coast.some(point => point[0] >= minX && point[0] <= maxX &&
+      point[1] >= minY && point[1] <= maxY && contains(point, polygon))) coastal.add(province.id);
   }
   coastalCache.set(map, coastal);
   return coastal;
